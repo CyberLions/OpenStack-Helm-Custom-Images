@@ -66,6 +66,6 @@ jobs:
         with:
           context: ./${{ matrix.container }}/
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{steps.repository_owner.outputs.lowerCaseValue}}/${{ matrix.container }}:2024.1-ubuntu_jammy-${{ steps.date.outputs.date }},${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.container }}:2024.1-ubuntu_jammy
+          tags: ${{ env.REGISTRY }}${{steps.repository_owner.outputs.lowerCaseValue}}/${{ matrix.container }}:2024.1-ubuntu_jammy-${{ steps.date.outputs.date }},${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.container }}:2024.1-ubuntu_jammy
           cache-from: type=gha
           cache-to: type=gha,mode=max
