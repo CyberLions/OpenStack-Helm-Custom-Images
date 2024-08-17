@@ -54,6 +54,10 @@ jobs:
         id: date
         run: echo "::set-output name=date::$(date +'%Y%m%d')"
 
+      - name: Convert registry owner to lowercase
+        id: repository_owner
+        run: INPUT=${{ github.repository_owner }} echo "::set-output name=lowerCaseValue::${INPUT,,}"
+
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
@@ -62,6 +66,6 @@ jobs:
         with:
           context: ./${{ matrix.container }}/
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.container }}:2024.1-ubuntu_jammy-${{ steps.date.outputs.date }},${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.container }}:2024.1-ubuntu_jammy
+          tags: ${{ env.REGISTRY }}/${{steps.repository_owner.outputs.lowerCaseValue}}/${{ matrix.container }}:2024.1-ubuntu_jammy-${{ steps.date.outputs.date }},${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.container }}:2024.1-ubuntu_jammy
           cache-from: type=gha
           cache-to: type=gha,mode=max
