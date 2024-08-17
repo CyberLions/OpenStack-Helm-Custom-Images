@@ -66,7 +66,8 @@ jobs:
         id: build-and-push
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
-          context: ./${{ matrix.container }}/
+          context: .
+          file: ./${{ matrix.container }}/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ env.REGISTRY }}${{ steps.repository_owner.outputs.lowercase }}/${{ matrix.container }}:2024.1-ubuntu_jammy-${{ steps.date.outputs.date }},${{ env.REGISTRY }}/${{ steps.repository_owner.outputs.lowercase }}/${{ matrix.container }}:2024.1-ubuntu_jammy
           cache-from: type=gha
