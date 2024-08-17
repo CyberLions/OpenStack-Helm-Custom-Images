@@ -69,6 +69,6 @@ jobs:
           context: .
           file: ./${{ matrix.container }}/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}${{ steps.repository_owner.outputs.lowercase }}/${{ matrix.container }}:2024.1-ubuntu_jammy-${{ steps.date.outputs.date }},${{ env.REGISTRY }}/${{ steps.repository_owner.outputs.lowercase }}/${{ matrix.container }}:2024.1-ubuntu_jammy
+          tags: ${{ env.REGISTRY }}/${{ steps.repository_owner.outputs.lowercase }}/${{ matrix.container }}:2024.1-ubuntu_jammy-${{ steps.date.outputs.date }},${{ env.REGISTRY }}/${{ steps.repository_owner.outputs.lowercase }}/${{ matrix.container }}:2024.1-ubuntu_jammy
           cache-from: type=gha
           cache-to: type=gha,mode=max
