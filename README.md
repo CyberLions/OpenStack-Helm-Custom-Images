@@ -2,4 +2,10 @@
 Custom Images for OpenStack-Helm.
 
 ## Keystone-OIDC
-Openstack Keystone with libapache2-mod-auth-openidc installed
+Openstack Keystone with libapache2-mod-auth-openidc installed.
+
+## Horizon-Heat
+Openstack Horizon with Heat plugins installed.
+
+## Neutron-VPNaaS
+Openstack Neutron with VPNaaS plugins installed.
