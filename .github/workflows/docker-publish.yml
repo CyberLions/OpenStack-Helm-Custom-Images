@@ -21,7 +21,7 @@ jobs:
   build_matrix:
     strategy:
       matrix:
-        container: ["keystone-oidc", "horizon-heat"]
+        container: ["keystone-oidc", "horizon-heat", "neutron-vpnaas"]
     runs-on: ubuntu-latest
     permissions:
       contents: read
