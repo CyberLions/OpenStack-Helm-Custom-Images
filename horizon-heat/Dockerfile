@@ -7,3 +7,4 @@ RUN pip install heat-dashboard
 RUN apt update && apt install git -y
 RUN cd ~ && git clone https://opendev.org/openstack/neutron-vpnaas-dashboard
 RUN cd ~/neutron-vpnaas-dashboard && pip install .
+RUN cp ~/neutron-vpnaas-dashboard/neutron_vpnaas_dashboard/enabled/_7100_project_vpn_panel.py /var/lib/openstack/lib/*/site-packages/openstack_dashboard/enabled/
