@@ -225,8 +225,9 @@
             rfb = new RFB(document.body, url,
                           { repeaterID: WebUtil.getConfigVar('repeaterID', ''),
                             shared: WebUtil.getConfigVar('shared', true),
-                            credentials: { password: password } });
-            rfb.cursor = 'none';
+                            credentials: { password: password },
+                            showDotCursor: false });
+            rfb.localCursor = false;
             rfb.viewOnly = WebUtil.getConfigVar('view_only', false);
             rfb.addEventListener("connect",  connected);
             rfb.addEventListener("disconnect", disconnected);
