@@ -229,6 +229,7 @@
                             showDotCursor: true });
             rfb.localCursor = true;
             rfb.viewOnly = WebUtil.getConfigVar('view_only', false);
+            rfb._supportsTouch = false;
             rfb.addEventListener("connect",  connected);
             rfb.addEventListener("disconnect", disconnected);
             rfb.addEventListener("capabilities", function () { updatePowerButtons(); });
@@ -239,8 +240,9 @@
         })();
     </script>
     <style>
-        body {
-            cursor: default !important;
+        body, canvas {
+            touch-action: none;   /* Disable browser 'smart' touch handling */
+            cursor: default !important; /* Always show cursor */
         }
     </style>
 </head>
