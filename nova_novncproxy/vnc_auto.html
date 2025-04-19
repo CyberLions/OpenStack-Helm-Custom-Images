@@ -226,8 +226,8 @@
                           { repeaterID: WebUtil.getConfigVar('repeaterID', ''),
                             shared: WebUtil.getConfigVar('shared', true),
                             credentials: { password: password },
-                            showDotCursor: false });
-            rfb.localCursor = false;
+                            showDotCursor: true });
+            rfb.localCursor = true;
             rfb.viewOnly = WebUtil.getConfigVar('view_only', false);
             rfb.addEventListener("connect",  connected);
             rfb.addEventListener("disconnect", disconnected);
