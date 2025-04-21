@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     iproute2 \
     dnsutils \
     iputils-ping \
+    resolvconf \
     procps \
     sudo
 
