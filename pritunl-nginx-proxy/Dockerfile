@@ -23,11 +23,10 @@ RUN apt-get update && apt-get install -y \
     sudo
 
 RUN echo "deb https://repo.pritunl.com/stable/apt noble main" > /etc/apt/sources.list.d/pritunl.list \
-    && apt --assume-yes install gnupg \
     && gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 7568D9BB55FF9E5287D586017AE645C0CF8E292A \
     && gpg --armor --export 7568D9BB55FF9E5287D586017AE645C0CF8E292A | sudo tee /etc/apt/trusted.gpg.d/pritunl.asc \
     && apt update \
-    && apt install pritunl-client-electron
+    && apt install -y pritunl-client-electron
 
 RUN apt-get clean \
     && rm -rf /var/lib/apt/lists/*
