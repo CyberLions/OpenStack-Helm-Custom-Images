@@ -26,7 +26,7 @@ RUN echo "deb https://repo.pritunl.com/stable/apt noble main" > /etc/apt/sources
     && gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 7568D9BB55FF9E5287D586017AE645C0CF8E292A \
     && gpg --armor --export 7568D9BB55FF9E5287D586017AE645C0CF8E292A | sudo tee /etc/apt/trusted.gpg.d/pritunl.asc \
     && apt update \
-    && apt install -y pritunl-client-electron
+    && apt install -y pritunl-client
 
 RUN apt-get clean \
     && rm -rf /var/lib/apt/lists/*
