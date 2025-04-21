@@ -21,7 +21,7 @@ jobs:
   build_matrix:
     strategy:
       matrix:
-        container: ["keystone-oidc", "horizon-heat", "nova_novncproxy"]
+        container: ["keystone-oidc", "horizon-heat", "nova_novncproxy", "pritunl-nginx-proxy"]
     runs-on: ubuntu-latest
     permissions:
       contents: read
