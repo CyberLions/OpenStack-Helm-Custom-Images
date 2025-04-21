@@ -21,7 +21,9 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     resolvconf \
     procps \
-    sudo
+    sudo  || true && \
+    dpkg --configure -a && \
+    apt-get install -f -y
 
 RUN echo "deb https://repo.pritunl.com/stable/apt noble main" > /etc/apt/sources.list.d/pritunl.list \
     && gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys 7568D9BB55FF9E5287D586017AE645C0CF8E292A \
