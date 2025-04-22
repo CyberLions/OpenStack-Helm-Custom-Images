@@ -40,7 +40,7 @@ RUN arch=$(dpkg --print-architecture) && \
         curl -LO https://golang.org/dl/go1.22.2.linux-arm64.tar.gz && \
         tar -C /usr/local -xzf go1.22.2.linux-arm64.tar.gz && \
         export PATH=$PATH:/usr/local/go/bin && \
-        go version
+        go version \
 
         # Use a specific version known to work instead of @latest
         go install github.com/pritunl/pritunl-client-electron/cli@latest && \
