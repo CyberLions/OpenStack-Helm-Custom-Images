@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     gettext-base \
     python3 \
     iptables \
-    net-tools \ github.com/pritunl/pritunl-client-electron/cl
+    net-tools \
     iproute2 \
     dnsutils \
     iputils-ping \
@@ -36,7 +36,7 @@ RUN arch=$(dpkg --print-architecture) && \
         # ARM64 build from source
         echo "Building Pritunl client from source for ARM64" && \
         apt-get install -y git golang-go && \
-        go installi@latest && \
+        go install github.com/pritunl/pritunl-client-electron/cli@latest && \
         go install github.com/pritunl/pritunl-client-electron/service@latest && \
         mkdir -p /root/go/bin && \
         cp /root/go/bin/service /usr/bin/pritunl-client-service && \
