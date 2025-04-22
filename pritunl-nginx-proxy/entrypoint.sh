@@ -28,7 +28,7 @@ else
     
     # Get the profile ID
     pritunl-client list
-    PROFILE_ID=$(pritunl-client list | awk 'NR==4{print $1}')
+    PROFILE_ID=$(pritunl-client list | grep -E '\| [a-z0-9]{14,} ' | head -n1 | awk -F'|' '{gsub(/ /,"",$2); print $2}')
     
     if [ -z "$PROFILE_ID" ]; then
         log "Error: Failed to get profile ID for $PRITUNL_PROFILE | $PROFILE_ID"
