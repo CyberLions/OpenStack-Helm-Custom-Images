@@ -17,6 +17,11 @@ else
         log "Error: Profile /conf/pritunl-profiles/$PRITUNL_PROFILE not found!"
         exit 1
     fi
+
+    log "Starting pritunl-client-service daemon..."
+    pritunl-client-service &
+    sleep 2
+
     
     # Import the profile
     pritunl-client add "/conf/pritunl-profiles/$PRITUNL_PROFILE" > /dev/null
