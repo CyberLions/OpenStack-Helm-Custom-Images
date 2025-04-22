@@ -30,7 +30,7 @@ else
     PROFILE_ID=$(echo "$ADD_OUTPUT" | grep '^Profile ID:' | awk '{print $3}')
     
     if [ -z "$PROFILE_ID" ]; then
-        log "Error: Failed to get profile ID for $PRITUNL_PROFILE"
+        log "Error: Failed to get profile ID for $PRITUNL_PROFILE | $PROFILE_ID"
         exit 1
     fi
     
