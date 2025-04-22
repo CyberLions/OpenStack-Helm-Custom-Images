@@ -29,6 +29,9 @@ http {
 
         location / {
             proxy_pass http://${PROXY_PASS_DEFAULT}:${PROXY_PORT_DEFAULT};
+            proxy_http_version 1.1;                         # <-- Important for WebSocket
+            proxy_set_header Upgrade $http_upgrade;         # <-- Important for WebSocket
+            proxy_set_header Connection "upgrade";          # <-- Important for WebSocket
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -36,7 +39,6 @@ http {
         }
 
         # Additional location blocks can be added via environment variables
-        # ROUTE_1_PATH, ROUTE_1_DESTINATION, etc.
         ${ADDITIONAL_ROUTES}
     }
 }
