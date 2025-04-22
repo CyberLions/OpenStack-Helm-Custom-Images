@@ -17,21 +17,6 @@ else
         log "Error: Profile /conf/pritunl-profiles/$PRITUNL_PROFILE not found!"
         exit 1
     fi
-
-    # Detect if the file is a plain .ovpn (and not a .tar)
-    FILE_MAGIC=$(file -b "/conf/pritunl-profiles/$PRITUNL_PROFILE")
-    if echo "$FILE_MAGIC" | grep -qi 'ASCII text'; then
-        log "Detected plain OVPN file. Wrapping into a .tar for Pritunl client..."
-
-        TMPDIR=$(mktemp -d)
-        cp "/conf/pritunl-profiles/$PRITUNL_PROFILE" "$TMPDIR/client.ovpn"
-        tar -cf "/conf/pritunl-profiles/${PRITUNL_PROFILE%.ovpn}.tar" -C "$TMPDIR" client.ovpn
-        PRITUNL_PROFILE="${PRITUNL_PROFILE%.ovpn}.tar"
-
-        rm -rf "$TMPDIR"
-
-        log "Profile wrapped successfully: $PRITUNL_PROFILE"
-    fi
     
     # Import the profile
     pritunl-client add "/conf/pritunl-profiles/$PRITUNL_PROFILE" > /dev/null
