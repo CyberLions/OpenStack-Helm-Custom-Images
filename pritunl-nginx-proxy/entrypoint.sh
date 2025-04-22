@@ -48,7 +48,7 @@ else
     ATTEMPTS=0
     MAX_ATTEMPTS=12
     while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
-        if if pritunl-client list | grep -q "|.*Active.*|"; then
+        if pritunl-client list | grep -q "|.*Active.*|"; then
             log "VPN connection established successfully!"
             break
         fi
