@@ -115,6 +115,6 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             registry.psuccso.org/${{ matrix.container }}/${{ matrix.container }}:latest
-            registry.psuccso.org/${{ matrix.container }}${{ matrix.container }}:${{ steps.date.outputs.date }}
+            registry.psuccso.org/${{ matrix.container }}/${{ matrix.container }}:${{ steps.date.outputs.date }}
           cache-from: type=registry,ref=registry.psuccso.org/${{ matrix.container }}/${{ matrix.container }}:latest
           cache-to: type=inline
