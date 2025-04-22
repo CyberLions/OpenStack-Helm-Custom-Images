@@ -54,6 +54,10 @@ RUN arch=$(dpkg --print-architecture) && \
         exit 1; \
     fi
 
+# Install more dependencies
+RUN apt-get update && apt-get install -y \
+    openvpn 
+
 # Create necessary directories
 RUN mkdir -p /etc/nginx/templates /conf/pritunl-profiles /var/log/pritunl
 
