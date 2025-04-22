@@ -24,10 +24,10 @@ else
 
     
     # Import the profile
-    pritunl-client add "/conf/pritunl-profiles/$PRITUNL_PROFILE" > /dev/null
+    ADD_OUTPUT=$(pritunl-client add "/conf/pritunl-profiles/$PRITUNL_PROFILE")
     
     # Get the profile ID
-    PROFILE_ID=$(pritunl-client list | grep -B 1 "$PRITUNL_PROFILE" | head -n 1 | awk '{print $1}')
+    PROFILE_ID=$(echo "$ADD_OUTPUT" | grep '^Profile ID:' | awk '{print $3}')
     
     if [ -z "$PROFILE_ID" ]; then
         log "Error: Failed to get profile ID for $PRITUNL_PROFILE"
