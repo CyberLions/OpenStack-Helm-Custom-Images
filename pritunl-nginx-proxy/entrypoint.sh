@@ -27,7 +27,8 @@ else
     pritunl-client add "/conf/pritunl-profiles/$PRITUNL_PROFILE"
     
     # Get the profile ID
-    PROFILE_ID=$(pritunl-client list | awk 'NR==1{print $1}')
+    pritunl-client list
+    PROFILE_ID=$(pritunl-client list | awk 'NR==4{print $1}')
     
     if [ -z "$PROFILE_ID" ]; then
         log "Error: Failed to get profile ID for $PRITUNL_PROFILE | $PROFILE_ID"
