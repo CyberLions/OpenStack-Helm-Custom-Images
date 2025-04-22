@@ -39,8 +39,8 @@ RUN arch=$(dpkg --print-architecture) && \
         # Set GOTOOLCHAIN to local to ignore toolchain directives
         export GOTOOLCHAIN=local && \
         # Use a specific version known to work instead of @latest
-        go install github.com/pritunl/pritunl-client-electron/cli@v0.0.0-20240101000000-abcdef123456 && \
-        go install github.com/pritunl/pritunl-client-electron/service@v0.0.0-20240101000000-abcdef123456 && \
+        go install github.com/pritunl/pritunl-client-electron/cli@latest && \
+        go install github.com/pritunl/pritunl-client-electron/service@latest && \
         mkdir -p /root/go/bin && \
         cp /root/go/bin/service /usr/bin/pritunl-client-service && \
         cp /root/go/bin/cli /usr/bin/pritunl-client; \
