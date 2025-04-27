@@ -85,6 +85,9 @@ while true; do
     
     ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}location ${ROUTE_PATH} {\n"
     ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_pass http://${ROUTE_DEST}:${ROUTE_PORT};\n"
+    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_http_version 1.1;\n"
+    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_set_header Upgrade \$http_upgrade;\n"
+    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_set_header Connection \"upgrade\";\n"
     ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_set_header Host \$host;\n"
     ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_set_header X-Real-IP \$remote_addr;\n"
     ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\n"
