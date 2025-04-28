@@ -75,7 +75,6 @@ while true; do
     DEST_VAR="ROUTE_${i}_DESTINATION"
     PORT_VAR="ROUTE_${i}_PORT"
 
-    # Stop if no more routes
     [ -z "${!HOST_VAR}" ] && break
 
     ROUTE_HOST="${!HOST_VAR}"
@@ -89,7 +88,7 @@ while true; do
             proxy_pass http://${ROUTE_DEST}:${ROUTE_PORT};
             proxy_http_version 1.1;
             proxy_set_header Upgrade \$http_upgrade;
-            proxy_set_header Connection \"upgrade\";
+            proxy_set_header Connection \"upgrade\" ;
             proxy_set_header Host \$host;
             proxy_set_header X-Real-IP \$remote_addr;
             proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -111,21 +110,17 @@ ${SERVER_BLOCKS[$HOST]}
     }"
 done
 
-# Process template and inject dynamic blocks
 log "Generating Nginx configuration..."
+
 export DYNAMIC_SERVER_BLOCKS
+export ADDITIONAL_ROUTES
+export NGINX_PORT
+export PROXY_PASS_DEFAULT
+export PROXY_PORT_DEFAULT
 
-envsubst '${NGINX_PORT} ${PROXY_PASS_DEFAULT} ${PROXY_PORT_DEFAULT} ${ADDITIONAL_ROUTES}' \
-    < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf.tmp
-
-# Inject dynamic server blocks before closing HTTP block
-# Escape slashes, backslashes, and ampersands
-ESCAPED_BLOCKS=$(echo "${DYNAMIC_SERVER_BLOCKS}" | sed -e 's/[\/&]/\\&/g')
-
-# Inject into nginx.conf
-sed -i "/^}$/i ${ESCAPED_BLOCKS}" /etc/nginx/nginx.conf.tmp
-
-mv /etc/nginx/nginx.conf.tmp /etc/nginx/nginx.conf
+# Use envsubst to replace the markers
+envsubst '${NGINX_PORT} ${PROXY_PASS_DEFAULT} ${PROXY_PORT_DEFAULT} ${ADDITIONAL_ROUTES} ${DYNAMIC_SERVER_BLOCKS}' \
+    < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf
 
 log "Final Nginx configuration:"
 cat /etc/nginx/nginx.conf

@@ -43,7 +43,8 @@ http {
             proxy_set_header X-Forwarded-Proto $scheme;
         }
 
-        # Additional location blocks can be added via environment variables
         ${ADDITIONAL_ROUTES}
     }
+     
+    # ${DYNAMIC_SERVER_BLOCKS}
 }
