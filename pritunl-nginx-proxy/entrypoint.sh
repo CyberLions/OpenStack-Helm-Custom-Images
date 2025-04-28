@@ -65,46 +65,65 @@ else
     fi
 fi
 
-# Generate additional route configurations based on environment variables
-ADDITIONAL_ROUTES=""
+# --- Dynamic Nginx config generation ---
+declare -A SERVER_BLOCKS
+
 i=1
 while true; do
+    HOST_VAR="ROUTE_${i}_HOST"
     PATH_VAR="ROUTE_${i}_PATH"
     DEST_VAR="ROUTE_${i}_DESTINATION"
     PORT_VAR="ROUTE_${i}_PORT"
-    
-    if [ -z "${!PATH_VAR}" ]; then
-        break
-    fi
 
-    ROUTE_PATH="${!PATH_VAR}"
+    # Stop if no more routes
+    [ -z "${!HOST_VAR}" ] && break
+
+    ROUTE_HOST="${!HOST_VAR}"
+    ROUTE_PATH="${!PATH_VAR:-/}"
     ROUTE_DEST="${!DEST_VAR}"
     ROUTE_PORT="${!PORT_VAR:-80}"
 
-    log "Adding route: $ROUTE_PATH -> $ROUTE_DEST:$ROUTE_PORT"
+    log "Adding route: Host=$ROUTE_HOST Path=$ROUTE_PATH -> $ROUTE_DEST:$ROUTE_PORT"
 
-    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}location ${ROUTE_PATH} {
-    proxy_pass http://${ROUTE_DEST}:${ROUTE_PORT};
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade \$http_upgrade;
-    proxy_set_header Connection \"upgrade\";
-    proxy_set_header Host \$host;
-    proxy_set_header X-Real-IP \$remote_addr;
-    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto \$scheme;
-}
+    LOCATION_BLOCK="        location ${ROUTE_PATH} {
+            proxy_pass http://${ROUTE_DEST}:${ROUTE_PORT};
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade \$http_upgrade;
+            proxy_set_header Connection \"upgrade\";
+            proxy_set_header Host \$host;
+            proxy_set_header X-Real-IP \$remote_addr;
+            proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto \$scheme;
+        }
 "
+    SERVER_BLOCKS["$ROUTE_HOST"]+="$LOCATION_BLOCK"
     i=$((i+1))
 done
 
+# Build dynamic server blocks
+DYNAMIC_SERVER_BLOCKS=""
+for HOST in "${!SERVER_BLOCKS[@]}"; do
+    DYNAMIC_SERVER_BLOCKS+="
+    server {
+        listen ${NGINX_PORT:-80};
+        server_name $HOST;
+${SERVER_BLOCKS[$HOST]}
+    }"
+done
 
-# Export the additional routes for envsubst
-export ADDITIONAL_ROUTES
-
-# Process the Nginx configuration template
+# Process template and inject dynamic blocks
 log "Generating Nginx configuration..."
-envsubst '${PROXY_PASS_DEFAULT} ${PROXY_PORT_DEFAULT} ${NGINX_PORT} ${ADDITIONAL_ROUTES}' < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf
+export DYNAMIC_SERVER_BLOCKS
 
-# Start Nginx
+envsubst '${NGINX_PORT} ${PROXY_PASS_DEFAULT} ${PROXY_PORT_DEFAULT} ${ADDITIONAL_ROUTES}' \
+    < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf.tmp
+
+# Inject dynamic server blocks before closing HTTP block
+sed -i '/^}$/i '"${DYNAMIC_SERVER_BLOCKS}" /etc/nginx/nginx.conf.tmp
+mv /etc/nginx/nginx.conf.tmp /etc/nginx/nginx.conf
+
+log "Final Nginx configuration:"
+cat /etc/nginx/nginx.conf
+
 log "Starting Nginx reverse proxy..."
 nginx -g "daemon off;"
