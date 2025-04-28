@@ -76,26 +76,27 @@ while true; do
     if [ -z "${!PATH_VAR}" ]; then
         break
     fi
-    
+
     ROUTE_PATH="${!PATH_VAR}"
     ROUTE_DEST="${!DEST_VAR}"
     ROUTE_PORT="${!PORT_VAR:-80}"
-    
+
     log "Adding route: $ROUTE_PATH -> $ROUTE_DEST:$ROUTE_PORT"
-    
-    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}location ${ROUTE_PATH} {\n"
-    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_pass http://${ROUTE_DEST}:${ROUTE_PORT};\n"
-    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_http_version 1.1;\n"
-    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_set_header Upgrade \$http_upgrade;\n"
-    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_set_header Connection \"upgrade\";\n"
-    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_set_header Host \$host;\n"
-    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_set_header X-Real-IP \$remote_addr;\n"
-    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\n"
-    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}    proxy_set_header X-Forwarded-Proto \$scheme;\n"
-    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}}\n"
-    
+
+    ADDITIONAL_ROUTES="${ADDITIONAL_ROUTES}location ${ROUTE_PATH} {
+    proxy_pass http://${ROUTE_DEST}:${ROUTE_PORT};
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade \$http_upgrade;
+    proxy_set_header Connection \"upgrade\";
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+}
+"
     i=$((i+1))
 done
+
 
 # Export the additional routes for envsubst
 export ADDITIONAL_ROUTES
