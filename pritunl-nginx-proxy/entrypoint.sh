@@ -119,7 +119,7 @@ envsubst '${NGINX_PORT} ${PROXY_PASS_DEFAULT} ${PROXY_PORT_DEFAULT} ${ADDITIONAL
     < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf.tmp
 
 # Inject dynamic server blocks before closing HTTP block
-sed -i '/^}$/i '"${DYNAMIC_SERVER_BLOCKS}" /etc/nginx/nginx.conf.tmp
+sed -i '/^}$/i '"$(echo "${DYNAMIC_SERVER_BLOCKS}" | sed 's/|/\\|/g')" /etc/nginx/nginx.conf.tmp
 mv /etc/nginx/nginx.conf.tmp /etc/nginx/nginx.conf
 
 log "Final Nginx configuration:"
