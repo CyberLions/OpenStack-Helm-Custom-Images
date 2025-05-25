@@ -122,6 +122,48 @@ export PROXY_PORT_DEFAULT
 envsubst '${NGINX_PORT} ${PROXY_PASS_DEFAULT} ${PROXY_PORT_DEFAULT} ${ADDITIONAL_ROUTES} ${DYNAMIC_SERVER_BLOCKS}' \
     < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf
 
+
+# --- Dynamic Stream (TCP) Proxy Configuration ---
+log "Generating TCP stream proxy configuration..."
+
+STREAM_SERVER_BLOCKS=""
+k=1
+while true; do
+    STREAM_HOST_VAR="STREAM_ROUTE_${k}_DESTINATION"
+    STREAM_PORT_VAR="STREAM_ROUTE_${k}_PORT"
+    STREAM_LISTEN_VAR="STREAM_ROUTE_${k}_LISTEN_PORT"
+    STREAM_PROXY_PROTOCOL_VAR="STREAM_ROUTE_${k}_PROXY_PROTOCOL"
+
+    [ -z "${!STREAM_HOST_VAR}" ] && break
+
+    STREAM_DEST="${!STREAM_HOST_VAR}"
+    STREAM_PORT="${!STREAM_PORT_VAR:-80}"
+    STREAM_LISTEN="${!STREAM_LISTEN_VAR:-$STREAM_PORT}"  # Default listen = destination port
+    STREAM_PROXY_PROTOCOL="${!STREAM_PROXY_PROTOCOL_VAR:-off}"
+
+    log "Adding stream route: 0.0.0.0:$STREAM_LISTEN -> $STREAM_DEST:$STREAM_PORT (proxy_protocol=$STREAM_PROXY_PROTOCOL)"
+
+    STREAM_SERVER_BLOCKS+="
+    server {
+        listen ${STREAM_LISTEN};
+        proxy_pass ${STREAM_DEST}:${STREAM_PORT};
+        proxy_protocol ${STREAM_PROXY_PROTOCOL};
+    }
+"
+    k=$((k+1))
+done
+
+if [ -n "$STREAM_SERVER_BLOCKS" ]; then
+    cat <<EOF > /etc/nginx/nginx.stream.conf
+stream {
+$STREAM_SERVER_BLOCKS
+}
+EOF
+else
+    log "No TCP stream routes defined."
+fi
+
+
 log "Final Nginx configuration:"
 cat /etc/nginx/nginx.conf
 
