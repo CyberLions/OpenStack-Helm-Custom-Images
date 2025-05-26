@@ -133,6 +133,8 @@ while true; do
     STREAM_PORT_VAR="STREAM_ROUTE_${k}_PORT"
     STREAM_LISTEN_VAR="STREAM_ROUTE_${k}_LISTEN_PORT"
     STREAM_PROXY_PROTOCOL_VAR="STREAM_ROUTE_${k}_PROXY_PROTOCOL"
+    STREAM_PROTOCOL_VAR="STREAM_ROUTE_${k}_PROTOCOL"
+
 
     [ -z "${!STREAM_HOST_VAR}" ] && break
 
@@ -140,12 +142,19 @@ while true; do
     STREAM_PORT="${!STREAM_PORT_VAR:-80}"
     STREAM_LISTEN="${!STREAM_LISTEN_VAR:-$STREAM_PORT}"  # Default listen = destination port
     STREAM_PROXY_PROTOCOL="${!STREAM_PROXY_PROTOCOL_VAR:-off}"
+    STREAM_PROTOCOL="${!STREAM_PROTOCOL_VAR:-tcp}"
 
-    log "Adding stream route: 0.0.0.0:$STREAM_LISTEN -> $STREAM_DEST:$STREAM_PORT (proxy_protocol=$STREAM_PROXY_PROTOCOL)"
+    if [ "$STREAM_PROTOCOL" = "udp" ]; then
+        LISTEN_EXTRA=" udp"
+    else
+        LISTEN_EXTRA=""
+    fi
+
+    log "Adding stream route: 0.0.0.0:$STREAM_LISTEN -> $STREAM_DEST:$STREAM_PORT$LISTEN_EXTRA (proxy_protocol=$STREAM_PROXY_PROTOCOL)"
 
     STREAM_SERVER_BLOCKS+="
     server {
-        listen ${STREAM_LISTEN};
+        listen ${STREAM_LISTEN}${LISTEN_EXTRA};
         proxy_pass ${STREAM_DEST}:${STREAM_PORT};
         proxy_protocol ${STREAM_PROXY_PROTOCOL};
     }
