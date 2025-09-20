@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y \
     nginx \
     libnginx-mod-stream \
     gettext-base \
+    openssl \
+    # ^-- Added openssl for generating the default certificate
     python3 \
     iptables \
     net-tools \
@@ -23,6 +25,10 @@ RUN apt-get update && apt-get install -y \
     git \
     sudo
 
+# Set up default Nginx configuration template
+COPY general-nginx-proxy/nginx.conf.template /etc/nginx/templates/
+COPY general-nginx-proxy/entrypoint.sh /entrypoint.sh
+
 # Make the entrypoint script executable
 RUN chmod +x /entrypoint.sh
 
@@ -30,12 +36,11 @@ RUN chmod +x /entrypoint.sh
 RUN apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Default environment variables
-ENV PROXY_PASS_DEFAULT="10.0.103.2"
-ENV PROXY_PORT_DEFAULT="80"
+# Default environment variables for Nginx listen ports
 ENV NGINX_PORT="80"
+ENV NGINX_HTTPS_PORT="443"
 
-# Expose the Nginx port
+# Expose the Nginx ports
 EXPOSE 80 443
 
 # Set the entrypoint
