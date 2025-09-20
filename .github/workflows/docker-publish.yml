@@ -76,7 +76,7 @@ jobs:
   build_matrix-cloud:
     strategy:
       matrix:
-        container: ["pritunl-nginx-proxy"]
+        container: ["pritunl-nginx-proxy", "general-nginx-proxy"]
     runs-on: ubuntu-latest
     permissions:
       contents: read
