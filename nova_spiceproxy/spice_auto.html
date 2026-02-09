@@ -43,15 +43,22 @@
             /* Patch mouse position to use getBoundingClientRect() so coordinates are correct
                when the canvas is centered or has layout offset (offsetLeft/offsetTop are wrong). */
             (function() {
+                // Compute mouse position in *guest* coordinates, accounting for
+                // canvas position on the page and any CSS/device scaling.
                 var canvasCoords = function(sc, e) {
                     var canvas = sc.display && sc.display.surfaces && sc.display.primary_surface !== undefined
                         ? sc.display.surfaces[sc.display.primary_surface].canvas
                         : null;
                     if (!canvas) return { x: 0, y: 0 };
+
                     var r = canvas.getBoundingClientRect();
+                    // CSS pixels -> canvas pixels (handles HiDPI / resize_helper scaling)
+                    var scaleX = canvas.width  && r.width  ? canvas.width  / r.width  : 1;
+                    var scaleY = canvas.height && r.height ? canvas.height / r.height : 1;
+
                     return {
-                        x: Math.round(e.clientX - r.left),
-                        y: Math.round(e.clientY - r.top)
+                        x: Math.round((e.clientX - r.left) * scaleX),
+                        y: Math.round((e.clientY - r.top) * scaleY)
                     };
                 };
                 var origMousePosition = window.SpiceMsgcMousePosition;
