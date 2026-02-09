@@ -28,7 +28,6 @@
     <head>
 
         <title>Spice Javascript client</title>
-        <script src="spicearraybuffer.js"></script> 
         <script src="enums.js"></script>
         <script src="atKeynames.js"></script>
         <script src="utils.js"></script>
@@ -44,9 +43,6 @@
         <script src="display.js"></script>
         <script src="main.js"></script>
         <script src="inputs.js"></script>
-        <script src="webm.js"></script>
-        <script src="playback.js"></script>
-        <script src="simulatecursor.js"></script>
         <script src="cursor.js"></script>
         <script src="thirdparty/jsbn.js"></script>
         <script src="thirdparty/rsa.js"></script>
@@ -54,8 +50,6 @@
         <script src="thirdparty/rng.js"></script>
         <script src="thirdparty/sha1.js"></script>
         <script src="ticket.js"></script>
-        <script src="resize.js"></script>
-        <script src="filexfer.js"></script>
         <link rel="stylesheet" type="text/css" href="spice.css" />
 
         <style>
@@ -158,7 +152,7 @@
                 display: none;
             }
         </style>
-
+        
         <script>
             var host = null, port = null;
             var sc;
@@ -277,23 +271,7 @@
 
                 // By default, use the host and port of server that served this file
                 host = spice_query_var('host', window.location.hostname);
-
-                // Note that using the web server port only makes sense
-                //  if your web server has a reverse proxy to relay the WebSocket
-                //  traffic to the correct destination port.
-                var default_port = window.location.port;
-                if (!default_port) {
-                    if (window.location.protocol == 'http:') {
-                        default_port = 80;
-                    }
-                    else if (window.location.protocol == 'https:') {
-                        default_port = 443;
-                    }
-                }
-                port = spice_query_var('port', default_port);
-                if (window.location.protocol == 'https:') {
-                    scheme = "wss://";
-                }
+                port = spice_query_var('port', window.location.port);
 
                 // If a token variable is passed in, set the parameter in a cookie.
                 // This is used by nova-spiceproxy.
@@ -321,7 +299,7 @@
                 try
                 {
                     sc = new SpiceMainConn({uri: uri, screen_id: "spice-screen", dump_id: "debug-div",
-                                message_id: "message-div", password: password, onerror: spice_error, onagent: agent_connected });
+                                message_id: "message-div", password: password, onerror: spice_error });
                     
                     // Monitor connection state by checking display channel
                     var checkConnection = setInterval(function() {
@@ -407,36 +385,7 @@
                 if (sc) {
                     sc.stop();
                 }
-                if (window.File && window.FileReader && window.FileList && window.Blob)
-                {
-                    var spice_xfer_area = document.getElementById('spice-xfer-area');
-                    if (spice_xfer_area && document.getElementById('spice-area').contains(spice_xfer_area)) {
-                        document.getElementById('spice-area').removeChild(spice_xfer_area);
-                    }
-                    document.getElementById('spice-area').removeEventListener('dragover', handle_file_dragover, false);
-                    document.getElementById('spice-area').removeEventListener('drop', handle_file_drop, false);
-                }
                 console.log("<< disconnect");
-            }
-
-            function agent_connected(sc)
-            {
-                window.addEventListener('resize', handle_resize);
-                window.spice_connection = this;
-
-                resize_helper(this);
-
-                if (window.File && window.FileReader && window.FileList && window.Blob)
-                {
-                    var spice_xfer_area = document.createElement("div");
-                    spice_xfer_area.setAttribute('id', 'spice-xfer-area');
-                    document.getElementById('spice-area').addEventListener('dragover', handle_file_dragover, false);
-                    document.getElementById('spice-area').addEventListener('drop', handle_file_drop, false);
-                }
-                else
-                {
-                    console.log("File API is not supported");
-                }
             }
 
             // Initialize toolbar button
