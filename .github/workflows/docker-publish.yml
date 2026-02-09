@@ -6,8 +6,8 @@ name: Docker Build and Publish
 # documentation.
 
 on:
-  schedule:
-    - cron: '0 8 * * MON'
+  #schedule:
+  #  - cron: '0 8 * * MON'
   push:
     branches: [ "main" ]
 
