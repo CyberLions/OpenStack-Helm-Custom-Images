@@ -1,0 +1,425 @@
+<!--
+   Copyright (C) 2012 by Jeremy P. White <jwhite@codeweavers.com>
+
+   This file is part of spice-html5.
+
+   spice-html5 is free software: you can redistribute it and/or modify
+   it under the terms of the GNU Lesser General Public License as published by
+   the Free Software Foundation, either version 3 of the License, or
+   (at your option) any later version.
+
+   spice-html5 is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public License
+   along with spice-html5.  If not, see <http://www.gnu.org/licenses/>.
+
+   --------------------------------------------------
+    Spice Javascript client template.
+    Refer to main.js for more detailed information
+   --------------------------------------------------
+
+-->
+
+<!doctype html>
+<html>
+    <head>
+
+        <title>Spice Javascript client</title>
+        <script src="enums.js"></script>
+        <script src="atKeynames.js"></script>
+        <script src="utils.js"></script>
+        <script src="png.js"></script>
+        <script src="lz.js"></script>
+        <script src="quic.js"></script>
+        <script src="bitmap.js"></script>
+        <script src="spicedataview.js"></script>
+        <script src="spicetype.js"></script>
+        <script src="spicemsg.js"></script>
+        <script src="wire.js"></script>
+        <script src="spiceconn.js"></script>
+        <script src="display.js"></script>
+        <script src="main.js"></script>
+        <script src="inputs.js"></script>
+        <script src="cursor.js"></script>
+        <script src="thirdparty/jsbn.js"></script>
+        <script src="thirdparty/rsa.js"></script>
+        <script src="thirdparty/prng4.js"></script>
+        <script src="thirdparty/rng.js"></script>
+        <script src="thirdparty/sha1.js"></script>
+        <script src="ticket.js"></script>
+        <link rel="stylesheet" type="text/css" href="spice.css" />
+
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: #000000;
+                overflow: hidden;
+            }
+            
+            #spice-toolbar {
+                background-color: #2c3e50;
+                color: #ecf0f1;
+                padding: 5px 10px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                font-family: "Lucida Grande", "Lucida Sans Unicode", "Helvetica Neue", Helvetica, Arial, Verdana, sans-serif;
+                font-size: 12pt;
+                border-bottom: 1px solid #34495e;
+            }
+            
+            #spice-status {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+            }
+            
+            #spice-status-text {
+                font-weight: normal;
+            }
+            
+            #spice-focus-indicator {
+                padding: 2px 8px;
+                border-radius: 3px;
+                font-size: 10pt;
+            }
+            
+            #spice-focus-indicator.focused {
+                background-color: #27ae60;
+                color: white;
+            }
+            
+            #spice-focus-indicator.unfocused {
+                background-color: #e74c3c;
+                color: white;
+            }
+            
+            #spice-buttons {
+                display: flex;
+                gap: 5px;
+            }
+            
+            #spice-buttons input[type=button] {
+                padding: 5px 10px;
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 11pt;
+            }
+            
+            #spice-buttons input[type=button]:hover:not(:disabled) {
+                background-color: #2980b9;
+            }
+            
+            #spice-buttons input[type=button]:disabled {
+                background-color: #7f8c8d;
+                cursor: not-allowed;
+            }
+            
+            #spice-area {
+                width: 100vw;
+                height: calc(100vh - 35px);
+                overflow: hidden;
+                background-color: #000000;
+            }
+            
+            .spice-screen {
+                display: block;
+                padding: 0;
+                border: none;
+                background-color: #000000;
+                box-shadow: none;
+                border-radius: 0;
+                width: 100%;
+                height: 100%;
+            }
+            
+            #login {
+                display: none;
+            }
+            
+            #message-div {
+                display: none;
+            }
+            
+            #debug-div {
+                display: none;
+            }
+        </style>
+        
+        <script>
+            var host = null, port = null;
+            var sc;
+            var isConnected = false;
+            var isFocused = false;
+
+            function spice_set_cookie(name, value, days) {
+                var date, expires;
+                date = new Date();
+                date.setTime(date.getTime() + (days*24*60*60*1000));
+                expires = "; expires=" + date.toGMTString();
+                document.cookie = name + "=" + value + expires + "; path=/";
+            };
+
+            function spice_query_var(name, defvalue) {
+                var match = RegExp('[?&]' + name + '=([^&]*)')
+                                  .exec(window.location.search);
+                return match ?
+                    decodeURIComponent(match[1].replace(/\+/g, ' '))
+                    : defvalue;
+            }
+
+            function updateStatus(text, level) {
+                var statusText = document.getElementById('spice-status-text');
+                if (statusText) {
+                    statusText.textContent = text;
+                }
+            }
+
+            function updateFocusIndicator(focused) {
+                isFocused = focused;
+                var indicator = document.getElementById('spice-focus-indicator');
+                if (indicator) {
+                    if (focused) {
+                        indicator.textContent = 'Focused';
+                        indicator.className = 'focused';
+                    } else {
+                        indicator.textContent = 'Click to focus';
+                        indicator.className = 'unfocused';
+                    }
+                }
+            }
+
+            function sendCtrlAltDel() {
+                if (!sc || !sc.inputs || sc.inputs.state !== "ready") {
+                    return false;
+                }
+
+                // Send Ctrl+Alt+Del key combination
+                // Use keycode conversion functions for proper scancode format
+                // Ctrl = KEY_LCtrl = 29 (keyCode 17)
+                // Alt = KEY_Alt = 56 (keyCode 18)
+                // Delete = keyCode 46 -> scancode 0xE053
+                
+                var msg;
+                
+                // Press Ctrl (keyCode 17)
+                msg = new SpiceMiniData();
+                var ctrlDown = new SpiceMsgcKeyDown();
+                // keyCode 17 maps to KEY_LCtrl = 29
+                ctrlDown.code = keycode_to_start_scan(17);
+                msg.build_msg(SPICE_MSGC_INPUTS_KEY_DOWN, ctrlDown);
+                sc.inputs.send_msg(msg);
+                
+                // Press Alt (keyCode 18)
+                msg = new SpiceMiniData();
+                var altDown = new SpiceMsgcKeyDown();
+                // keyCode 18 maps to KEY_Alt = 56
+                altDown.code = keycode_to_start_scan(18);
+                msg.build_msg(SPICE_MSGC_INPUTS_KEY_DOWN, altDown);
+                sc.inputs.send_msg(msg);
+                
+                // Press Delete (keyCode 46)
+                msg = new SpiceMiniData();
+                var delDown = new SpiceMsgcKeyDown();
+                // keyCode 46 maps to extended scancode 0xE053
+                delDown.code = keycode_to_start_scan(46);
+                msg.build_msg(SPICE_MSGC_INPUTS_KEY_DOWN, delDown);
+                sc.inputs.send_msg(msg);
+                
+                // Release Delete
+                msg = new SpiceMiniData();
+                var delUp = new SpiceMsgcKeyUp();
+                delUp.code = keycode_to_end_scan(46);
+                msg.build_msg(SPICE_MSGC_INPUTS_KEY_UP, delUp);
+                sc.inputs.send_msg(msg);
+                
+                // Release Alt
+                msg = new SpiceMiniData();
+                var altUp = new SpiceMsgcKeyUp();
+                altUp.code = keycode_to_end_scan(18);
+                msg.build_msg(SPICE_MSGC_INPUTS_KEY_UP, altUp);
+                sc.inputs.send_msg(msg);
+                
+                // Release Ctrl
+                msg = new SpiceMiniData();
+                var ctrlUp = new SpiceMsgcKeyUp();
+                ctrlUp.code = keycode_to_end_scan(17);
+                msg.build_msg(SPICE_MSGC_INPUTS_KEY_UP, ctrlUp);
+                sc.inputs.send_msg(msg);
+                
+                return false;
+            }
+
+            function spice_error(e)
+            {
+                isConnected = false;
+                updateStatus("Connection error", "error");
+                document.getElementById('sendCtrlAltDelButton').disabled = true;
+                disconnect();
+            }
+
+            function connect()
+            {
+                var host, port, password, scheme = "ws://", uri;
+
+                // By default, use the host and port of server that served this file
+                host = spice_query_var('host', window.location.hostname);
+                port = spice_query_var('port', window.location.port);
+
+                // If a token variable is passed in, set the parameter in a cookie.
+                // This is used by nova-spiceproxy.
+                token = spice_query_var('token', null);
+                if (token) {
+                    spice_set_cookie('token', token, 1)
+                }
+
+                password = spice_query_var('password', '');
+                path = spice_query_var('path', 'websockify');
+
+                if ((!host) || (!port)) {
+                    console.log("must specify host and port in URL");
+                    updateStatus("Error: must specify host and port in URL", "error");
+                    return;
+                }
+
+                if (sc) {
+                    sc.stop();
+                }
+
+                uri = scheme + host + ":" + port;
+                updateStatus("Connecting...", "normal");
+
+                try
+                {
+                    sc = new SpiceMainConn({uri: uri, screen_id: "spice-screen", dump_id: "debug-div",
+                                message_id: "message-div", password: password, onerror: spice_error });
+                    
+                    // Monitor connection state by checking display channel
+                    var checkConnection = setInterval(function() {
+                        if (sc && sc.display) {
+                            if (sc.display.state === 'ready' && !isConnected) {
+                                isConnected = true;
+                                updateStatus("Connected", "normal");
+                                document.getElementById('sendCtrlAltDelButton').disabled = false;
+                                clearInterval(checkConnection);
+                                
+                                // Set up focus monitoring once canvas is ready
+                                setupFocusMonitoring();
+                            }
+                        }
+                        if (sc && sc.state === 'closing') {
+                            clearInterval(checkConnection);
+                        }
+                    }, 100);
+                    
+                    // Also check for canvas creation
+                    function setupFocusMonitoring() {
+                        var canvas = document.querySelector('#spice-screen canvas');
+                        if (canvas) {
+                            canvas.setAttribute('tabindex', '0'); // Make it focusable
+                            
+                            canvas.addEventListener('focus', function() {
+                                updateFocusIndicator(true);
+                            });
+                            
+                            canvas.addEventListener('blur', function() {
+                                updateFocusIndicator(false);
+                            });
+                            
+                            canvas.addEventListener('mouseover', function() {
+                                updateFocusIndicator(true);
+                            });
+                            
+                            canvas.addEventListener('mouseout', function() {
+                                // Only update if not actually focused
+                                if (document.activeElement !== canvas) {
+                                    updateFocusIndicator(false);
+                                }
+                            });
+                            
+                            canvas.addEventListener('click', function() {
+                                canvas.focus();
+                                updateFocusIndicator(true);
+                            });
+                            
+                            // Check focus state periodically
+                            setInterval(function() {
+                                if (document.activeElement === canvas) {
+                                    updateFocusIndicator(true);
+                                }
+                            }, 500);
+                            
+                            // Initial focus check
+                            updateFocusIndicator(document.activeElement === canvas);
+                        } else {
+                            // Retry if canvas not found yet
+                            setTimeout(setupFocusMonitoring, 200);
+                        }
+                    }
+                    
+                    // Start trying to set up focus monitoring
+                    setTimeout(setupFocusMonitoring, 500);
+                }
+                catch (e)
+                {
+                    alert(e.toString());
+                    updateStatus("Connection failed: " + e.toString(), "error");
+                    disconnect();
+                }
+
+            }
+
+            function disconnect()
+            {
+                console.log(">> disconnect");
+                isConnected = false;
+                updateStatus("Disconnected", "normal");
+                document.getElementById('sendCtrlAltDelButton').disabled = true;
+                if (sc) {
+                    sc.stop();
+                }
+                console.log("<< disconnect");
+            }
+
+            // Initialize toolbar button
+            window.addEventListener('load', function() {
+                document.getElementById('sendCtrlAltDelButton').onclick = sendCtrlAltDel;
+                document.getElementById('sendCtrlAltDelButton').disabled = true;
+                updateFocusIndicator(false);
+            });
+
+            connect();
+        </script>
+
+    </head>
+
+    <body>
+        <div id="spice-toolbar">
+            <div id="spice-status">
+                <span id="spice-status-text">Connecting...</span>
+                <span id="spice-focus-indicator" class="unfocused">Click to focus</span>
+            </div>
+            <div id="spice-buttons">
+                <input type="button" value="Send Ctrl+Alt+Del" id="sendCtrlAltDelButton" disabled>
+            </div>
+        </div>
+
+        <div id="spice-area">
+            <div id="spice-screen" class="spice-screen"></div>
+        </div>
+
+        <div id="message-div" class="spice-message"></div>
+
+        <div id="debug-div">
+        <!-- If DUMPXXX is turned on, dumped images will go here -->
+        </div>
+
+    </body>
+</html>
