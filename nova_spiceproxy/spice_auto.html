@@ -39,6 +39,57 @@
         <script src="spicedataview.js"></script>
         <script src="spicetype.js"></script>
         <script src="spicemsg.js"></script>
+        <script>
+            /* Patch mouse position to use getBoundingClientRect() so coordinates are correct
+               when the canvas is centered or has layout offset (offsetLeft/offsetTop are wrong). */
+            (function() {
+                var canvasCoords = function(sc, e) {
+                    var canvas = sc.display && sc.display.surfaces && sc.display.primary_surface !== undefined
+                        ? sc.display.surfaces[sc.display.primary_surface].canvas
+                        : null;
+                    if (!canvas) return { x: 0, y: 0 };
+                    var r = canvas.getBoundingClientRect();
+                    return {
+                        x: Math.round(e.clientX - r.left),
+                        y: Math.round(e.clientY - r.top)
+                    };
+                };
+                var origMousePosition = window.SpiceMsgcMousePosition;
+                var origMouseMotion = window.SpiceMsgcMouseMotion;
+                if (origMousePosition) {
+                    window.SpiceMsgcMousePosition = function(sc, e) {
+                        this.display_id = 0;
+                        this.buttons_state = sc.buttons_state;
+                        if (e) {
+                            var c = canvasCoords(sc, e);
+                            this.x = c.x;
+                            this.y = c.y;
+                            sc.mousex = c.x;
+                            sc.mousey = c.y;
+                        } else {
+                            this.x = this.y = this.buttons_state = 0;
+                        }
+                    };
+                    window.SpiceMsgcMousePosition.prototype = origMousePosition.prototype;
+                }
+                if (origMouseMotion) {
+                    window.SpiceMsgcMouseMotion = function(sc, e) {
+                        this.display_id = 0;
+                        this.buttons_state = sc.buttons_state;
+                        if (e) {
+                            var c = canvasCoords(sc, e);
+                            this.x = c.x - (sc.mousex !== undefined ? sc.mousex : 0);
+                            this.y = c.y - (sc.mousey !== undefined ? sc.mousey : 0);
+                            sc.mousex = c.x;
+                            sc.mousey = c.y;
+                        } else {
+                            this.x = this.y = this.buttons_state = 0;
+                        }
+                    };
+                    window.SpiceMsgcMouseMotion.prototype = origMouseMotion.prototype;
+                }
+            })();
+        </script>
         <script src="wire.js"></script>
         <script src="spiceconn.js"></script>
         <script src="display.js"></script>
@@ -62,7 +113,7 @@
             body {
                 margin: 0;
                 padding: 0;
-                background-color: #000000;
+                background-color: #333333;
                 overflow: hidden;
             }
             
@@ -132,18 +183,32 @@
                 width: 100vw;
                 height: calc(100vh - 35px);
                 overflow: hidden;
-                background-color: #000000;
+                background-color: #333333;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+            }
+            
+            /* Overlay captures mouse for whole page; events forwarded to canvas */
+            #spice-input-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                pointer-events: auto;
+                cursor: default;
             }
             
             .spice-screen {
                 display: block;
+                margin: 0;
                 padding: 0;
                 border: none;
                 background-color: #000000;
                 box-shadow: none;
                 border-radius: 0;
-                width: 100%;
-                height: 100%;
             }
             
             #login {
@@ -332,8 +397,8 @@
                                 document.getElementById('sendCtrlAltDelButton').disabled = false;
                                 clearInterval(checkConnection);
                                 
-                                // Set up focus monitoring once canvas is ready
                                 setupFocusMonitoring();
+                                setupFullPageInput();
                             }
                         }
                         if (sc && sc.state === 'closing') {
@@ -341,53 +406,61 @@
                         }
                     }, 100);
                     
-                    // Also check for canvas creation
+                    // Focus = iframe/document focus (for "click to type" when embedded)
                     function setupFocusMonitoring() {
-                        var canvas = document.querySelector('#spice-screen canvas');
-                        if (canvas) {
-                            canvas.setAttribute('tabindex', '0'); // Make it focusable
-                            
-                            canvas.addEventListener('focus', function() {
-                                updateFocusIndicator(true);
-                            });
-                            
-                            canvas.addEventListener('blur', function() {
-                                updateFocusIndicator(false);
-                            });
-                            
-                            canvas.addEventListener('mouseover', function() {
-                                updateFocusIndicator(true);
-                            });
-                            
-                            canvas.addEventListener('mouseout', function() {
-                                // Only update if not actually focused
-                                if (document.activeElement !== canvas) {
-                                    updateFocusIndicator(false);
-                                }
-                            });
-                            
-                            canvas.addEventListener('click', function() {
-                                canvas.focus();
-                                updateFocusIndicator(true);
-                            });
-                            
-                            // Check focus state periodically
-                            setInterval(function() {
-                                if (document.activeElement === canvas) {
-                                    updateFocusIndicator(true);
-                                }
-                            }, 500);
-                            
-                            // Initial focus check
-                            updateFocusIndicator(document.activeElement === canvas);
-                        } else {
-                            // Retry if canvas not found yet
-                            setTimeout(setupFocusMonitoring, 200);
+                        function refreshFocus() {
+                            updateFocusIndicator(document.hasFocus());
                         }
+                        window.addEventListener('focus', refreshFocus);
+                        window.addEventListener('blur', refreshFocus);
+                        setInterval(refreshFocus, 500);
+                        refreshFocus();
                     }
                     
-                    // Start trying to set up focus monitoring
-                    setTimeout(setupFocusMonitoring, 500);
+                    // Capture mouse on whole page and forward to canvas with correct coordinates
+                    function setupFullPageInput() {
+                        var canvas = document.querySelector('#spice-screen canvas');
+                        var overlay = document.getElementById('spice-input-overlay');
+                        if (!canvas || !overlay) {
+                            setTimeout(setupFullPageInput, 200);
+                            return;
+                        }
+                        canvas.setAttribute('tabindex', '0');
+                        
+                        function forwardMouse(type, e) {
+                            var opts = {
+                                bubbles: true, cancelable: true,
+                                clientX: e.clientX, clientY: e.clientY,
+                                screenX: e.screenX, screenY: e.screenY,
+                                button: e.button, buttons: e.buttons,
+                                relatedTarget: e.relatedTarget,
+                                view: e.view
+                            };
+                            if (type === 'wheel') {
+                                canvas.dispatchEvent(new WheelEvent('mousewheel', {
+                                    bubbles: true, cancelable: true,
+                                    clientX: e.clientX, clientY: e.clientY,
+                                    deltaX: e.deltaX, deltaY: e.deltaY, deltaZ: e.deltaZ,
+                                    deltaMode: e.deltaMode
+                                }));
+                            } else {
+                                canvas.dispatchEvent(new MouseEvent(type, opts));
+                            }
+                        }
+                        
+                        ['mousedown','mouseup','mousemove','contextmenu','click','dblclick'].forEach(function(type) {
+                            overlay.addEventListener(type, function(e) {
+                                if (type === 'mousedown') canvas.focus();
+                                forwardMouse(type, e);
+                                if (type === 'contextmenu') e.preventDefault();
+                            });
+                        });
+                        
+                        overlay.addEventListener('mousewheel', function(e) {
+                            e.preventDefault();
+                            forwardMouse('wheel', e);
+                        }, { passive: false });
+                    }
                 }
                 catch (e)
                 {
@@ -464,6 +537,7 @@
 
         <div id="spice-area">
             <div id="spice-screen" class="spice-screen"></div>
+            <div id="spice-input-overlay" tabindex="0" title="Click to focus for keyboard input"></div>
         </div>
 
         <div id="message-div" class="spice-message"></div>
