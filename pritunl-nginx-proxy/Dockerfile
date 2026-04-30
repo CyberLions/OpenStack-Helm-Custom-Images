@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Avoid prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -36,19 +36,14 @@ RUN arch=$(dpkg --print-architecture) && \
     elif [ "$arch" = "arm64" ]; then \
         # ARM64 build from source
         echo "Building Pritunl client from source for ARM64" && \
-
-        # Install golang
         curl -LO https://golang.org/dl/go1.22.2.linux-arm64.tar.gz && \
         tar -C /usr/local -xzf go1.22.2.linux-arm64.tar.gz && \
         export PATH=$PATH:/usr/local/go/bin && \
         go version && \
-
-        # Use a specific version known to work instead of @latest
-        go install github.com/pritunl/pritunl-client-electron/cli@latest && \
-        go install github.com/pritunl/pritunl-client-electron/service@latest && \
-        mkdir -p /root/go/bin && \
-        cp /root/go/bin/service /usr/bin/pritunl-client-service && \
-        cp /root/go/bin/cli /usr/bin/pritunl-client; \
+        GOBIN=/usr/local/bin go install github.com/pritunl/pritunl-client/cli@latest && \
+        GOBIN=/usr/local/bin go install github.com/pritunl/pritunl-client/service@latest && \
+        ln -sf /usr/local/bin/service /usr/bin/pritunl-client-service && \
+        ln -sf /usr/local/bin/cli /usr/bin/pritunl-client; \
     else \
         echo "Unsupported architecture: $arch" && \
         exit 1; \
