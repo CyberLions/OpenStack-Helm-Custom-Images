@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=docker.io/openstackhelm/horizon:2024.2-ubuntu_jammy
+ARG BASE_IMAGE=quay.io/airshipit/horizon:2025.1-ubuntu_noble_loci
 FROM ${BASE_IMAGE}
 
 # Heat Dashboard:
