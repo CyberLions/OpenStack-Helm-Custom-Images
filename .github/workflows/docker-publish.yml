@@ -77,10 +77,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - container: "keystone-oidc"
-            base_image: "docker.io/openstackhelm/keystone:2025.1-ubuntu_noble"
-          - container: "horizon-heat"
-            base_image: "docker.io/openstackhelm/horizon:2025.1-ubuntu_noble"
           - container: "nova_novncproxy"
             base_image: "quay.io/airshipit/nova:2025.1-ubuntu_noble"
     runs-on: ubuntu-latest
@@ -88,6 +84,9 @@ jobs:
       contents: read
       packages: write
       id-token: write
+
+    # NOTE: upstream openstackhelm/horizon and openstackhelm/keystone 2025.1 Noble base images are
+    # not currently published on Docker Hub, so these builds cannot run successfully yet.
 
     steps:
       - name: Checkout repository
