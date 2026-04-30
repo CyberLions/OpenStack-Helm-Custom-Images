@@ -73,6 +73,60 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  build_matrix_rack_epoxy:
+    strategy:
+      matrix:
+        include:
+          - container: "keystone-oidc"
+            base_image: "docker.io/openstackhelm/keystone:2025.1-ubuntu_noble"
+          - container: "horizon-heat"
+            base_image: "docker.io/openstackhelm/horizon:2025.1-ubuntu_noble"
+          - container: "nova_novncproxy"
+            base_image: "quay.io/airshipit/nova:2025.1-ubuntu_noble"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y%m%d')"
+
+      - name: Convert registry owner to lowercase
+        id: repository_owner
+        uses: ASzc/change-string-case-action@v6
+        with:
+          string: ${{ github.repository_owner }}
+
+      - name: Build and push Docker image
+        id: build-and-push
+        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
+        with:
+          context: .
+          file: ./${{ matrix.container }}/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          build-args: |
+            BASE_IMAGE=${{ matrix.base_image }}
+          tags: ${{ env.REGISTRY }}/${{ steps.repository_owner.outputs.lowercase }}/${{ matrix.container }}:2025.1-ubuntu_noble-${{ steps.date.outputs.date }},${{ env.REGISTRY }}/${{ steps.repository_owner.outputs.lowercase }}/${{ matrix.container }}:2025.1-ubuntu_noble
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   build_matrix-cloud:
     strategy:
       matrix:

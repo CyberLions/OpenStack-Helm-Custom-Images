@@ -1,4 +1,5 @@
-FROM docker.io/openstackhelm/horizon:2024.2-ubuntu_jammy
+ARG BASE_IMAGE=docker.io/openstackhelm/horizon:2024.2-ubuntu_jammy
+FROM ${BASE_IMAGE}
 
 # Heat Dashboard:
 RUN pip install heat-dashboard
