@@ -296,16 +296,35 @@
             if (canvas) { canvas.focus(); }
         });
 
-        // Intercept Ctrl+V before noVNC sees it; redirect to relay textarea so
-        // the browser fires a native paste event there (no clipboard API permission needed)
+        // Intercept Ctrl+V before noVNC sees it
         document.addEventListener('keydown', function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'v' && rfb) {
                 if (document.activeElement === document.getElementById('noVNC_clipboard_text')) return;
-                console.log('[clipboard] Ctrl+V captured, focusing paste relay');
                 e.stopPropagation();
                 e.stopImmediatePropagation();
-                // No preventDefault — browser will fire paste on relay textarea
-                document.getElementById('noVNC_paste_relay').focus();
+
+                var active = document.activeElement;
+                var canvasFocused = active && active.tagName === 'CANVAS';
+
+                if (canvasFocused) {
+                    // noVNC fights focus changes on the canvas, so paste relay won't work.
+                    // Use clipboard API directly (user has already granted permission).
+                    e.preventDefault();
+                    console.log('[clipboard] canvas focused, using navigator.clipboard');
+                    if (navigator.clipboard && navigator.clipboard.readText) {
+                        navigator.clipboard.readText().then(function(text) {
+                            if (text) { console.log('[clipboard] got', text.length, 'chars'); typeTextIntoVM(text); }
+                        }).catch(function(err) {
+                            console.warn('[clipboard] navigator.clipboard failed:', err);
+                            var ta = document.getElementById('noVNC_clipboard_text').value;
+                            if (ta) typeTextIntoVM(ta);
+                        });
+                    }
+                } else {
+                    // Not on canvas: redirect to paste relay (no permission needed)
+                    console.log('[clipboard] not on canvas, using paste relay');
+                    document.getElementById('noVNC_paste_relay').focus();
+                }
             }
         }, true);
 
