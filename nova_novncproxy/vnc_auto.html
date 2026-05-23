@@ -311,6 +311,12 @@
                     // Use clipboard API directly (user has already granted permission).
                     e.preventDefault();
                     console.log('[clipboard] canvas focused, using navigator.clipboard');
+                    // Release Ctrl/Meta in the VM — noVNC forwarded ControlLeft-down before
+                    // we intercepted the V keydown, so the VM has Ctrl stuck held.
+                    rfb.sendKey(0xffe3, null, false); // ControlLeft up
+                    rfb.sendKey(0xffe4, null, false); // ControlRight up
+                    rfb.sendKey(0xffe7, null, false); // MetaLeft up
+                    rfb.sendKey(0xffe8, null, false); // MetaRight up
                     if (navigator.clipboard && navigator.clipboard.readText) {
                         navigator.clipboard.readText().then(function(text) {
                             if (text) { console.log('[clipboard] got', text.length, 'chars'); typeTextIntoVM(text); }
