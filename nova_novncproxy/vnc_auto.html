@@ -139,37 +139,29 @@
         function typeTextIntoVM(text) {
             if (!rfb) { console.warn('[clipboard] typeTextIntoVM: rfb is null, aborting'); return; }
             console.log('[clipboard] typeTextIntoVM: typing', text.length, 'chars into VM');
-            var CHAR_DELAY = 25; // ms between characters
-            var delay = 0;
             var i = 0;
             while (i < text.length) {
-                var char = text[i];
-                // collapse \r\n into a single Return
-                if (char === '\r' && text[i + 1] === '\n') { i++; char = '\n'; }
-                (function(c, d) {
-                    setTimeout(function() {
-                        var keysym;
-                        if (c === '\n' || c === '\r') {
-                            keysym = 0xff0d; // Return
-                        } else if (c === '\t') {
-                            keysym = 0xff09; // Tab
-                        } else if (c === '\x1b') {
-                            keysym = 0xff1b; // Escape
-                        } else {
-                            keysym = c.codePointAt(0);
-                        }
-                        try {
-                            rfb.sendKey(keysym, null, true);
-                            rfb.sendKey(keysym, null, false);
-                        } catch(err) {
-                            console.error('[clipboard] typeTextIntoVM: sendKey threw:', err);
-                        }
-                    }, d);
-                })(char, delay);
-                delay += CHAR_DELAY;
+                var c = text[i];
+                if (c === '\r' && text[i + 1] === '\n') { i++; c = '\n'; }
+                var keysym;
+                if (c === '\n' || c === '\r') {
+                    keysym = 0xff0d;
+                } else if (c === '\t') {
+                    keysym = 0xff09;
+                } else if (c === '\x1b') {
+                    keysym = 0xff1b;
+                } else {
+                    keysym = c.codePointAt(0);
+                }
+                try {
+                    rfb.sendKey(keysym, null, true);
+                    rfb.sendKey(keysym, null, false);
+                } catch(err) {
+                    console.error('[clipboard] typeTextIntoVM: sendKey threw:', err);
+                }
                 i++;
             }
-            console.log('[clipboard] typeTextIntoVM: scheduled', text.length, 'chars over', delay, 'ms');
+            console.log('[clipboard] typeTextIntoVM: sent', text.length, 'chars');
         }
 
         window.clipboardSendToVM = function() {
@@ -178,10 +170,10 @@
             if (!rfb || !text) { console.warn('[clipboard] Send to VM aborted: no rfb or no text'); return; }
             typeTextIntoVM(text);
             var hint = document.getElementById('noVNC_clipboard_hint');
-            hint.textContent = 'Typing into VM...';
+            hint.textContent = 'Sent!';
             setTimeout(function() {
                 hint.textContent = 'Text copied inside the VM will appear above automatically.';
-            }, Math.max(1500, text.length * 25 + 200));
+            }, 1500);
         };
 
         window.clipboardReadLocal = function() {
@@ -209,29 +201,6 @@
             } else {
                 status("Connected to " + desktopName);
             }
-
-            document.addEventListener('keydown', function(e) {
-                if ((e.ctrlKey || e.metaKey) && e.key === 'v' && rfb) {
-                    if (document.activeElement === document.getElementById('noVNC_clipboard_text')) return;
-                    console.log('[clipboard] Ctrl+V intercepted (capture phase). activeElement:', document.activeElement && document.activeElement.tagName);
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('[clipboard] reading from navigator.clipboard...');
-                    navigator.clipboard.readText().then(function(text) {
-                        console.log('[clipboard] navigator.clipboard.readText succeeded, chars:', text.length);
-                        typeTextIntoVM(text);
-                    }).catch(function(err) {
-                        console.warn('[clipboard] navigator.clipboard.readText failed:', err, '— falling back to textarea');
-                        var text = document.getElementById('noVNC_clipboard_text').value;
-                        if (text) {
-                            console.log('[clipboard] falling back to textarea, chars:', text.length);
-                            typeTextIntoVM(text);
-                        } else {
-                            console.warn('[clipboard] fallback textarea also empty, nothing sent');
-                        }
-                    });
-                }
-            }, true);
         }
 
         function disconnected(e) {
@@ -303,6 +272,30 @@
 
             WebUtil.createCookie('token', token, 1)
         }
+
+        // Register before new RFB() so our capture handler fires before noVNC's
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'v' && rfb) {
+                if (document.activeElement === document.getElementById('noVNC_clipboard_text')) return;
+                console.log('[clipboard] Ctrl+V intercepted. activeElement:', document.activeElement && document.activeElement.tagName);
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                navigator.clipboard.readText().then(function(text) {
+                    console.log('[clipboard] navigator.clipboard.readText succeeded, chars:', text.length);
+                    typeTextIntoVM(text);
+                }).catch(function(err) {
+                    console.warn('[clipboard] navigator.clipboard.readText failed:', err, '— falling back to textarea');
+                    var text = document.getElementById('noVNC_clipboard_text').value;
+                    if (text) {
+                        console.log('[clipboard] falling back to textarea, chars:', text.length);
+                        typeTextIntoVM(text);
+                    } else {
+                        console.warn('[clipboard] fallback textarea also empty, nothing sent');
+                    }
+                });
+            }
+        }, true);
 
         (function() {
 
