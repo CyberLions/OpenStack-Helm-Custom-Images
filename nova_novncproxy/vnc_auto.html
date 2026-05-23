@@ -127,6 +127,10 @@
             }
         };
 
+        document.addEventListener('fullscreenchange', function() {
+            window.dispatchEvent(new Event('resize'));
+        });
+
         window.toggleClipboard = function() {
             var panel = document.getElementById('noVNC_clipboard_panel');
             panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
@@ -164,12 +168,21 @@
                 status("Connected to " + desktopName);
             }
 
-            document.addEventListener('paste', function(e) {
-                var text = e.clipboardData && e.clipboardData.getData('text');
-                if (text && rfb) {
-                    rfb.clipboardPasteFrom(text);
+            document.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'v' && rfb) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigator.clipboard.readText().then(function(text) {
+                        rfb.clipboardPasteFrom(text);
+                        rfb.sendKey(0xffe3, 'ControlLeft', true);
+                        rfb.sendKey(0x76, 'KeyV', true);
+                        rfb.sendKey(0x76, 'KeyV', false);
+                        rfb.sendKey(0xffe3, 'ControlLeft', false);
+                    }).catch(function(err) {
+                        console.error('Clipboard read failed:', err);
+                    });
                 }
-            });
+            }, true);
         }
 
         function disconnected(e) {
