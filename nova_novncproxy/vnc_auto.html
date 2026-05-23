@@ -137,20 +137,26 @@
         };
 
         function sendCtrlVToVM() {
-            if (!rfb) return;
-            // 50ms delay so the preceding clipboardPasteFrom message reaches the
-            // VM before the Ctrl+V keystrokes arrive.
+            if (!rfb) { console.warn('[clipboard] sendCtrlVToVM: rfb is null, aborting'); return; }
+            console.log('[clipboard] sendCtrlVToVM: queuing Ctrl+V in 50ms, rfb.sendKey exists:', typeof rfb.sendKey);
             setTimeout(function() {
-                rfb.sendKey(0xffe3, 'ControlLeft', true);
-                rfb.sendKey(0x76, 'KeyV', true);
-                rfb.sendKey(0x76, 'KeyV', false);
-                rfb.sendKey(0xffe3, 'ControlLeft', false);
+                try {
+                    rfb.sendKey(0xffe3, 'ControlLeft', true);
+                    rfb.sendKey(0x76, 'KeyV', true);
+                    rfb.sendKey(0x76, 'KeyV', false);
+                    rfb.sendKey(0xffe3, 'ControlLeft', false);
+                    console.log('[clipboard] sendCtrlVToVM: Ctrl+V sent to VM');
+                } catch(err) {
+                    console.error('[clipboard] sendCtrlVToVM: rfb.sendKey threw:', err);
+                }
             }, 50);
         }
 
         window.clipboardSendToVM = function() {
             var text = document.getElementById('noVNC_clipboard_text').value;
-            if (!rfb || !text) return;
+            console.log('[clipboard] Send to VM clicked, text length:', text.length, 'rfb:', !!rfb);
+            if (!rfb || !text) { console.warn('[clipboard] Send to VM aborted: no rfb or no text'); return; }
+            console.log('[clipboard] calling rfb.clipboardPasteFrom with', text.length, 'chars');
             rfb.clipboardPasteFrom(text);
             sendCtrlVToVM();
             var hint = document.getElementById('noVNC_clipboard_hint');
@@ -161,9 +167,13 @@
         };
 
         window.clipboardReadLocal = function() {
+            console.log('[clipboard] clipboardReadLocal: navigator.clipboard available:', !!(navigator.clipboard && navigator.clipboard.readText));
             if (navigator.clipboard && navigator.clipboard.readText) {
                 navigator.clipboard.readText().then(function(text) {
+                    console.log('[clipboard] clipboardReadLocal: read', text.length, 'chars from browser clipboard');
                     document.getElementById('noVNC_clipboard_text').value = text;
+                }).catch(function(err) {
+                    console.error('[clipboard] clipboardReadLocal failed:', err);
                 });
             }
         };
@@ -173,6 +183,7 @@
         };
 
         function connected(e) {
+            console.log('[novnc] Connected. desktopName:', desktopName, 'rfb.sendKey exists:', typeof rfb.sendKey, 'rfb._keyboard exists:', !!(rfb._keyboard));
             document.getElementById('sendCtrlAltDelButton').disabled = false;
             if (WebUtil.getConfigVar('encrypt',
                                      (window.location.protocol === "https:"))) {
@@ -183,20 +194,23 @@
 
             document.addEventListener('keydown', function(e) {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'v' && rfb) {
-                    // Don't intercept when the user is pasting into the clipboard textarea itself.
                     if (document.activeElement === document.getElementById('noVNC_clipboard_text')) return;
+                    console.log('[clipboard] Ctrl+V intercepted (capture phase). activeElement:', document.activeElement && document.activeElement.tagName);
                     e.preventDefault();
                     e.stopPropagation();
+                    console.log('[clipboard] reading from navigator.clipboard...');
                     navigator.clipboard.readText().then(function(text) {
+                        console.log('[clipboard] navigator.clipboard.readText succeeded, chars:', text.length);
                         rfb.clipboardPasteFrom(text);
                         sendCtrlVToVM();
-                    }).catch(function() {
-                        // Async clipboard read failed (permission or browser quirk).
-                        // Fall back to whatever is in the clipboard panel textarea.
+                    }).catch(function(err) {
+                        console.warn('[clipboard] navigator.clipboard.readText failed:', err, '— falling back to textarea');
                         var text = document.getElementById('noVNC_clipboard_text').value;
                         if (text) {
                             rfb.clipboardPasteFrom(text);
                             sendCtrlVToVM();
+                        } else {
+                            console.warn('[clipboard] fallback textarea also empty, nothing sent');
                         }
                     });
                 }
@@ -204,6 +218,7 @@
         }
 
         function disconnected(e) {
+            console.log('[novnc] Disconnected. clean:', e.detail.clean);
             document.getElementById('sendCtrlAltDelButton').disabled = true;
             updatePowerButtons();
             if (e.detail.clean) {
@@ -224,9 +239,16 @@
 
         function clipboardReceive(e) {
             var text = e.detail.text;
+            console.log('[clipboard] clipboardReceive: VM sent', text.length, 'chars to browser clipboard');
             document.getElementById('noVNC_clipboard_text').value = text;
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).catch(function() {});
+                navigator.clipboard.writeText(text).then(function() {
+                    console.log('[clipboard] clipboardReceive: wrote to browser clipboard OK');
+                }).catch(function(err) {
+                    console.warn('[clipboard] clipboardReceive: writeText failed:', err);
+                });
+            } else {
+                console.warn('[clipboard] clipboardReceive: navigator.clipboard.writeText not available');
             }
         }
 
