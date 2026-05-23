@@ -88,18 +88,12 @@
             desktopName = e.detail.name;
         }
         function credentials(e) {
-            var html;
-
             var form = document.createElement('form');
-            form.innerHTML = '<label></label>';
+            form.innerHTML = '<label>Password Required: </label>';
             form.innerHTML += '<input type=password size=10 id="password_input">';
             form.onsubmit = setPassword;
-
-            // bypass status() because it sets text content
-            document.getElementById('noVNC_status_bar').setAttribute("class", "noVNC_status_warn");
             document.getElementById('noVNC_status').innerHTML = '';
             document.getElementById('noVNC_status').appendChild(form);
-            document.getElementById('noVNC_status').querySelector('label').textContent = 'Password Required: ';
         }
         function setPassword() {
             rfb.sendCredentials({ password: document.getElementById('password_input').value });
@@ -122,45 +116,86 @@
             return false;
         }
         function status(text, level) {
-            switch (level) {
-                case 'normal':
-                case 'warn':
-                case 'error':
-                    break;
-                default:
-                    level = "warn";
-            }
-            document.getElementById('noVNC_status_bar').className = "noVNC_status_" + level;
             document.getElementById('noVNC_status').textContent = text;
         }
+
+        window.toggleFullscreen = function() {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                document.documentElement.requestFullscreen();
+            }
+        };
+
+        window.toggleClipboard = function() {
+            var panel = document.getElementById('noVNC_clipboard_panel');
+            panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+        };
+
+        window.clipboardSendToVM = function() {
+            var text = document.getElementById('noVNC_clipboard_text').value;
+            if (rfb) rfb.clipboardPasteFrom(text);
+        };
+
+        window.clipboardReadLocal = function() {
+            if (navigator.clipboard && navigator.clipboard.readText) {
+                navigator.clipboard.readText().then(function(text) {
+                    document.getElementById('noVNC_clipboard_text').value = text;
+                }).catch(function() {
+                    document.getElementById('noVNC_clipboard_text').placeholder =
+                        'Browser blocked clipboard access. Paste manually with Ctrl+V.';
+                });
+            } else {
+                document.getElementById('noVNC_clipboard_text').placeholder =
+                    'Browser clipboard API not available. Paste manually with Ctrl+V.';
+            }
+        };
+
+        window.clipboardClear = function() {
+            document.getElementById('noVNC_clipboard_text').value = '';
+        };
 
         function connected(e) {
             document.getElementById('sendCtrlAltDelButton').disabled = false;
             if (WebUtil.getConfigVar('encrypt',
                                      (window.location.protocol === "https:"))) {
-                status("Connected (encrypted) to " + desktopName, "normal");
+                status("Connected (encrypted) to " + desktopName);
             } else {
-                status("Connected (unencrypted) to " + desktopName, "normal");
+                status("Connected to " + desktopName);
             }
+
+            document.addEventListener('paste', function(e) {
+                var text = e.clipboardData && e.clipboardData.getData('text');
+                if (text && rfb) {
+                    rfb.clipboardPasteFrom(text);
+                }
+            });
         }
 
         function disconnected(e) {
             document.getElementById('sendCtrlAltDelButton').disabled = true;
             updatePowerButtons();
             if (e.detail.clean) {
-                status("Disconnected", "normal");
+                status("Disconnected");
             } else {
-                status("Something went wrong, connection is closed", "error");
+                status("Connection lost");
             }
         }
 
         function updatePowerButtons() {
-            var powerbuttons;
-            powerbuttons = document.getElementById('noVNC_power_buttons');
+            var powerbuttons = document.getElementById('noVNC_power_buttons');
             if (rfb.capabilities.power) {
-                powerbuttons.className= "noVNC_shown";
+                powerbuttons.className = "noVNC_shown";
             } else {
-                powerbuttons.className = "noVNC_hidden";
+                powerbuttons.className = "";
+            }
+        }
+
+        function clipboardReceive(e) {
+            var text = e.detail.text;
+            document.getElementById('noVNC_clipboard_text').value = text;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).catch(function() {});
             }
         }
 
@@ -222,7 +257,7 @@
             }
             url += '/' + path;
 
-            rfb = new RFB(document.body, url,
+            rfb = new RFB(document.getElementById('noVNC_screen'), url,
                           { repeaterID: WebUtil.getConfigVar('repeaterID', ''),
                             shared: WebUtil.getConfigVar('shared', true),
                             credentials: { password: password },
@@ -235,34 +270,165 @@
             rfb.addEventListener("capabilities", function () { updatePowerButtons(); });
             rfb.addEventListener("credentialsrequired", credentials);
             rfb.addEventListener("desktopname", updateDesktopName);
-            rfb.scaleViewport = WebUtil.getConfigVar('scale', false);
-            rfb.resizeSession = WebUtil.getConfigVar('resize', false);
+            rfb.addEventListener("clipboard", clipboardReceive);
+            rfb.scaleViewport = WebUtil.getConfigVar('scale', true);
+            rfb.resizeSession = WebUtil.getConfigVar('resize', true);
         })();
     </script>
     <style>
         body, canvas {
-            touch-action: none;   /* Disable browser 'smart' touch handling */
-            cursor: default !important; /* Always show cursor */
+            touch-action: none;
+            cursor: default !important;
+            margin: 0;
+            padding: 0;
+        }
+        #noVNC_toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 10px;
+            font-family: "Lucida Grande", "Lucida Sans Unicode", Helvetica, Arial, sans-serif;
+            font-size: 12pt;
+            border-bottom: 1px solid #34495e;
+            box-sizing: border-box;
+        }
+        #noVNC_status {
+            font-size: 11pt;
+            color: #ecf0f1;
+        }
+        #noVNC_buttons {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        #noVNC_buttons input[type=button] {
+            padding: 5px 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11pt;
+        }
+        #noVNC_buttons input[type=button]:hover:not(:disabled) {
+            background-color: #2980b9;
+        }
+        #noVNC_buttons input[type=button]:disabled {
+            background-color: #7f8c8d;
+            cursor: not-allowed;
+        }
+        #sendCtrlAltDelButton {
+            background-color: #e74c3c !important;
+        }
+        #sendCtrlAltDelButton:hover:not(:disabled) {
+            background-color: #c0392b !important;
+        }
+        #noVNC_power_buttons {
+            display: none;
+        }
+        #noVNC_power_buttons.noVNC_shown {
+            display: contents;
+        }
+        #noVNC_clipboard_panel {
+            display: none;
+            position: fixed;
+            top: 42px;
+            right: 10px;
+            z-index: 2000;
+            background: #2c3e50;
+            border: 1px solid #34495e;
+            border-radius: 4px;
+            padding: 10px;
+            width: 320px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            font-family: "Lucida Grande", Helvetica, Arial, sans-serif;
+            font-size: 11pt;
+            color: #ecf0f1;
+        }
+        #noVNC_clipboard_panel label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 10pt;
+            color: #bdc3c7;
+        }
+        #noVNC_clipboard_text {
+            width: 100%;
+            height: 80px;
+            background: #1a252f;
+            color: #ecf0f1;
+            border: 1px solid #34495e;
+            border-radius: 3px;
+            padding: 5px;
+            font-size: 11pt;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        #noVNC_clipboard_actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 6px;
+        }
+        #noVNC_clipboard_actions button {
+            flex: 1;
+            padding: 5px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10pt;
+        }
+        #noVNC_clipboard_actions button:hover {
+            background-color: #2980b9;
+        }
+        #noVNC_clipboard_hint {
+            font-size: 9pt;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        #noVNC_screen {
+            position: fixed;
+            top: 42px;
+            left: 0;
+            right: 0;
+            bottom: 0;
         }
     </style>
 </head>
 
 <body>
-  <div id="noVNC_status_bar">
-    <div id="noVNC_left_dummy_elem"></div>
-    <div id="noVNC_status">Loading</div>
+  <div id="noVNC_toolbar">
+    <div id="noVNC_status">Connecting...</div>
     <div id="noVNC_buttons">
-      <input type=button value="Send CtrlAltDel"
-             id="sendCtrlAltDelButton" class="noVNC_shown">
-      <span id="noVNC_power_buttons" class="noVNC_hidden">
-        <input type=button value="Shutdown"
-               id="machineShutdownButton">
-        <input type=button value="Reboot"
-               id="machineRebootButton">
-        <input type=button value="Reset"
-               id="machineResetButton">
+      <span id="noVNC_power_buttons">
+        <input type=button value="Shutdown" id="machineShutdownButton">
+        <input type=button value="Reboot" id="machineRebootButton">
+        <input type=button value="Reset" id="machineResetButton">
       </span>
+      <input type=button value="Clipboard" id="clipboardButton" onclick="toggleClipboard()">
+      <input type=button value="Fullscreen" id="fullscreenButton" onclick="toggleFullscreen()">
+      <input type=button value="Ctrl+Alt+Del" id="sendCtrlAltDelButton" disabled>
     </div>
   </div>
+
+  <div id="noVNC_clipboard_panel">
+    <label>Paste text here to send to VM (Ctrl+V then Send), or copy from VM below:</label>
+    <textarea id="noVNC_clipboard_text" placeholder="Paste your text here..."></textarea>
+    <div id="noVNC_clipboard_actions">
+      <button onclick="clipboardSendToVM()">Send to VM</button>
+      <button onclick="clipboardReadLocal()">Paste from Browser</button>
+      <button onclick="clipboardClear()">Clear</button>
+    </div>
+    <div id="noVNC_clipboard_hint">Text copied inside the VM will appear above automatically.</div>
+  </div>
+
+  <div id="noVNC_screen"></div>
 </body>
 </html>
