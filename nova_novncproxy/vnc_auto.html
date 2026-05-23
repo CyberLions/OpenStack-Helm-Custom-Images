@@ -307,25 +307,20 @@
                 var canvasFocused = active && active.tagName === 'CANVAS';
 
                 if (canvasFocused) {
-                    // noVNC fights focus changes on the canvas, so paste relay won't work.
-                    // Use clipboard API directly (user has already granted permission).
-                    e.preventDefault();
-                    console.log('[clipboard] canvas focused, using navigator.clipboard');
                     // Release Ctrl/Meta in the VM — noVNC forwarded ControlLeft-down before
                     // we intercepted the V keydown, so the VM has Ctrl stuck held.
                     rfb.sendKey(0xffe3, null, false); // ControlLeft up
                     rfb.sendKey(0xffe4, null, false); // ControlRight up
                     rfb.sendKey(0xffe7, null, false); // MetaLeft up
                     rfb.sendKey(0xffe8, null, false); // MetaRight up
-                    if (navigator.clipboard && navigator.clipboard.readText) {
-                        navigator.clipboard.readText().then(function(text) {
-                            if (text) { console.log('[clipboard] got', text.length, 'chars'); typeTextIntoVM(text); }
-                        }).catch(function(err) {
-                            console.warn('[clipboard] navigator.clipboard failed:', err);
-                            var ta = document.getElementById('noVNC_clipboard_text').value;
-                            if (ta) typeTextIntoVM(ta);
-                        });
-                    }
+                    // Blur canvas so noVNC releases its keyboard grab, then focus the paste
+                    // relay. The browser will fire the native paste event on the relay
+                    // (no clipboard API permission needed).
+                    var canvas = document.querySelector('#noVNC_screen canvas');
+                    if (canvas) canvas.blur();
+                    document.getElementById('noVNC_paste_relay').focus();
+                    console.log('[clipboard] canvas focused: released modifiers, paste relay ready');
+                    // No preventDefault — browser fires paste on the now-focused relay textarea
                 } else {
                     // Not on canvas: redirect to paste relay (no permission needed)
                     console.log('[clipboard] not on canvas, using paste relay');
