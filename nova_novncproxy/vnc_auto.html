@@ -136,22 +136,35 @@
             panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
         };
 
+        function sendCtrlVToVM() {
+            if (!rfb) return;
+            // 50ms delay so the preceding clipboardPasteFrom message reaches the
+            // VM before the Ctrl+V keystrokes arrive.
+            setTimeout(function() {
+                rfb.sendKey(0xffe3, 'ControlLeft', true);
+                rfb.sendKey(0x76, 'KeyV', true);
+                rfb.sendKey(0x76, 'KeyV', false);
+                rfb.sendKey(0xffe3, 'ControlLeft', false);
+            }, 50);
+        }
+
         window.clipboardSendToVM = function() {
             var text = document.getElementById('noVNC_clipboard_text').value;
-            if (rfb) rfb.clipboardPasteFrom(text);
+            if (!rfb || !text) return;
+            rfb.clipboardPasteFrom(text);
+            sendCtrlVToVM();
+            var hint = document.getElementById('noVNC_clipboard_hint');
+            hint.textContent = 'Sent!';
+            setTimeout(function() {
+                hint.textContent = 'Text copied inside the VM will appear above automatically.';
+            }, 1500);
         };
 
         window.clipboardReadLocal = function() {
             if (navigator.clipboard && navigator.clipboard.readText) {
                 navigator.clipboard.readText().then(function(text) {
                     document.getElementById('noVNC_clipboard_text').value = text;
-                }).catch(function() {
-                    document.getElementById('noVNC_clipboard_text').placeholder =
-                        'Browser blocked clipboard access. Paste manually with Ctrl+V.';
                 });
-            } else {
-                document.getElementById('noVNC_clipboard_text').placeholder =
-                    'Browser clipboard API not available. Paste manually with Ctrl+V.';
             }
         };
 
@@ -170,16 +183,21 @@
 
             document.addEventListener('keydown', function(e) {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'v' && rfb) {
+                    // Don't intercept when the user is pasting into the clipboard textarea itself.
+                    if (document.activeElement === document.getElementById('noVNC_clipboard_text')) return;
                     e.preventDefault();
                     e.stopPropagation();
                     navigator.clipboard.readText().then(function(text) {
                         rfb.clipboardPasteFrom(text);
-                        rfb.sendKey(0xffe3, 'ControlLeft', true);
-                        rfb.sendKey(0x76, 'KeyV', true);
-                        rfb.sendKey(0x76, 'KeyV', false);
-                        rfb.sendKey(0xffe3, 'ControlLeft', false);
-                    }).catch(function(err) {
-                        console.error('Clipboard read failed:', err);
+                        sendCtrlVToVM();
+                    }).catch(function() {
+                        // Async clipboard read failed (permission or browser quirk).
+                        // Fall back to whatever is in the clipboard panel textarea.
+                        var text = document.getElementById('noVNC_clipboard_text').value;
+                        if (text) {
+                            rfb.clipboardPasteFrom(text);
+                            sendCtrlVToVM();
+                        }
                     });
                 }
             }, true);
@@ -432,7 +450,7 @@
   </div>
 
   <div id="noVNC_clipboard_panel">
-    <label>Paste text here to send to VM (Ctrl+V then Send), or copy from VM below:</label>
+    <label>Paste text here and click Send, or Ctrl+V anywhere on the page to paste directly:</label>
     <textarea id="noVNC_clipboard_text" placeholder="Paste your text here..."></textarea>
     <div id="noVNC_clipboard_actions">
       <button onclick="clipboardSendToVM()">Send to VM</button>
