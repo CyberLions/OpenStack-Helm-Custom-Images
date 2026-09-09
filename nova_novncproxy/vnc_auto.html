@@ -174,34 +174,6 @@
             console.log('[clipboard] typeTextIntoVM: sent', text.length, 'chars');
         }
 
-        window.clipboardSendToVM = function() {
-            var text = document.getElementById('noVNC_clipboard_text').value;
-            console.log('[clipboard] Send to VM clicked, text length:', text.length, 'rfb:', !!rfb);
-            if (!rfb || !text) { console.warn('[clipboard] Send to VM aborted: no rfb or no text'); return; }
-            typeTextIntoVM(text);
-            var hint = document.getElementById('noVNC_clipboard_hint');
-            hint.textContent = 'Sent!';
-            setTimeout(function() {
-                hint.textContent = 'Text copied inside the VM will appear above automatically.';
-            }, 1500);
-        };
-
-        window.clipboardReadLocal = function() {
-            console.log('[clipboard] clipboardReadLocal: navigator.clipboard available:', !!(navigator.clipboard && navigator.clipboard.readText));
-            if (navigator.clipboard && navigator.clipboard.readText) {
-                navigator.clipboard.readText().then(function(text) {
-                    console.log('[clipboard] clipboardReadLocal: read', text.length, 'chars from browser clipboard');
-                    document.getElementById('noVNC_clipboard_text').value = text;
-                }).catch(function(err) {
-                    console.error('[clipboard] clipboardReadLocal failed:', err);
-                });
-            }
-        };
-
-        window.clipboardClear = function() {
-            document.getElementById('noVNC_clipboard_text').value = '';
-        };
-
         function connected(e) {
             console.log('[novnc] Connected. desktopName:', desktopName, 'rfb.sendKey exists:', typeof rfb.sendKey, 'rfb._keyboard exists:', !!(rfb._keyboard));
             document.getElementById('sendCtrlAltDelButton').disabled = false;
@@ -236,7 +208,6 @@
         function clipboardReceive(e) {
             var text = e.detail.text;
             console.log('[clipboard] clipboardReceive: VM sent', text.length, 'chars to browser clipboard');
-            document.getElementById('noVNC_clipboard_text').value = text;
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(function() {
                     console.log('[clipboard] clipboardReceive: wrote to browser clipboard OK');
@@ -299,7 +270,6 @@
         // Intercept Ctrl+V before noVNC sees it
         document.addEventListener('keydown', function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'v' && rfb) {
-                if (document.activeElement === document.getElementById('noVNC_clipboard_text')) return;
                 e.stopPropagation();
                 e.stopImmediatePropagation();
 
@@ -366,8 +336,12 @@
             rfb.addEventListener("credentialsrequired", credentials);
             rfb.addEventListener("desktopname", updateDesktopName);
             rfb.addEventListener("clipboard", clipboardReceive);
+            // resizeSession asks the guest to change its actual screen resolution, which
+            // Nova's plain VGA console can't honor. When enabled it also suppresses
+            // scaleViewport, so the oversized console renders unscaled and the cursor
+            // can scroll below the visible fold. Default resize off so scaling applies.
             rfb.scaleViewport = WebUtil.getConfigVar('scale', true);
-            rfb.resizeSession = WebUtil.getConfigVar('resize', true);
+            rfb.resizeSession = WebUtil.getConfigVar('resize', false);
         })();
     </script>
     <style>
@@ -449,44 +423,8 @@
         }
         #noVNC_clipboard_panel label {
             display: block;
-            margin-bottom: 4px;
             font-size: 10pt;
             color: #bdc3c7;
-        }
-        #noVNC_clipboard_text {
-            width: 100%;
-            height: 80px;
-            background: #1a252f;
-            color: #ecf0f1;
-            border: 1px solid #34495e;
-            border-radius: 3px;
-            padding: 5px;
-            font-size: 11pt;
-            resize: vertical;
-            box-sizing: border-box;
-        }
-        #noVNC_clipboard_actions {
-            display: flex;
-            gap: 5px;
-            margin-top: 6px;
-        }
-        #noVNC_clipboard_actions button {
-            flex: 1;
-            padding: 5px;
-            background-color: #3498db;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 10pt;
-        }
-        #noVNC_clipboard_actions button:hover {
-            background-color: #2980b9;
-        }
-        #noVNC_clipboard_hint {
-            font-size: 9pt;
-            color: #7f8c8d;
-            margin-top: 5px;
         }
         #noVNC_screen {
             position: fixed;
@@ -514,14 +452,7 @@
   </div>
 
   <div id="noVNC_clipboard_panel">
-    <label>Paste text here and click Send, or Ctrl+V anywhere on the page to paste directly:</label>
-    <textarea id="noVNC_clipboard_text" placeholder="Paste your text here..."></textarea>
-    <div id="noVNC_clipboard_actions">
-      <button onclick="clipboardSendToVM()">Send to VM</button>
-      <button onclick="clipboardReadLocal()">Paste from Browser</button>
-      <button onclick="clipboardClear()">Clear</button>
-    </div>
-    <div id="noVNC_clipboard_hint">Text copied inside the VM will appear above automatically.</div>
+    <label>To paste into the VM, press Ctrl+V (Windows/Linux) or Cmd+V (Mac).</label>
   </div>
 
   <div id="noVNC_screen"></div>
