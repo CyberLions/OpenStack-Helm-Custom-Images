@@ -143,35 +143,112 @@
             '_':0x2d,'+':0x3d,'{':0x5b,'}':0x5d,'|':0x5c,
             ':':0x3b,'"':0x27,'<':0x2c,'>':0x2e,'?':0x2f,'~':0x60
         };
-        var SHIFT_KEY = 0xffe1;
+        var SHIFT_KEY  = 0xffe1; // Left Shift
+        var SHIFT_KEY2 = 0xffe2; // Right Shift (belt-and-suspenders release)
+        var CAPS_KEY   = 0xffe5; // CapsLock
 
-        function typeTextIntoVM(text) {
-            if (!rfb) { console.warn('[clipboard] typeTextIntoVM: rfb is null, aborting'); return; }
-            console.log('[clipboard] typeTextIntoVM: typing', text.length, 'chars into VM');
-            var i = 0;
-            while (i < text.length) {
-                var c = text[i];
-                if (c === '\r' && text[i + 1] === '\n') { i++; c = '\n'; }
-                try {
-                    if (c === '\n' || c === '\r') {
-                        rfb.sendKey(0xff0d, null, true);  rfb.sendKey(0xff0d, null, false);
-                    } else if (c === '\t') {
-                        rfb.sendKey(0xff09, null, true);  rfb.sendKey(0xff09, null, false);
-                    } else if (SHIFT_SYMS.hasOwnProperty(c)) {
-                        rfb.sendKey(SHIFT_KEY, null, true);
-                        rfb.sendKey(SHIFT_SYMS[c], null, true);
-                        rfb.sendKey(SHIFT_SYMS[c], null, false);
-                        rfb.sendKey(SHIFT_KEY, null, false);
-                    } else {
-                        var keysym = c.codePointAt(0);
-                        rfb.sendKey(keysym, null, true);  rfb.sendKey(keysym, null, false);
-                    }
-                } catch(err) {
-                    console.error('[clipboard] typeTextIntoVM: sendKey threw:', err);
-                }
-                i++;
+        // Tuning knobs — adjust if the target VM still drops keys or feels slow
+        var PASTE_CHUNK_SIZE  = 8;   // keystrokes sent per chunk
+        var PASTE_CHUNK_DELAY = 20;  // ms between chunks  (increase for slow VMs)
+        var PASTE_KEY_DELAY   = 2;   // ms between individual keys inside a chunk
+
+        // Active paste can be cancelled if a new one starts
+        var _pasteAbort = null;
+
+        function _releaseModifiers() {
+            // Unconditionally release every common modifier so none stay stuck
+            var mods = [
+                0xffe1, // Shift_L
+                0xffe2, // Shift_R
+                0xffe3, // Control_L
+                0xffe4, // Control_R
+                0xffe7, // Meta_L  (Super/Win)
+                0xffe8, // Meta_R
+                0xffe9, // Alt_L
+                0xffea, // Alt_R
+                0xffe5, // Caps_Lock  — force OFF via double-tap if needed below
+            ];
+            mods.forEach(function(k) {
+                try { rfb.sendKey(k, null, false); } catch(e) {}
+            });
+        }
+
+        function _sendOneKey(c) {
+            if (c === '\n' || c === '\r') {
+                rfb.sendKey(0xff0d, null, true);
+                rfb.sendKey(0xff0d, null, false);
+            } else if (c === '\t') {
+                rfb.sendKey(0xff09, null, true);
+                rfb.sendKey(0xff09, null, false);
+            } else if (SHIFT_SYMS.hasOwnProperty(c)) {
+                rfb.sendKey(SHIFT_KEY,        null, true);
+                rfb.sendKey(SHIFT_SYMS[c],    null, true);
+                rfb.sendKey(SHIFT_SYMS[c],    null, false);
+                rfb.sendKey(SHIFT_KEY,        null, false);
+                // Extra safety: also release right-shift in case the VM mapped it
+                rfb.sendKey(SHIFT_KEY2,       null, false);
+            } else {
+                var keysym = c.codePointAt(0);
+                rfb.sendKey(keysym, null, true);
+                rfb.sendKey(keysym, null, false);
             }
-            console.log('[clipboard] typeTextIntoVM: sent', text.length, 'chars');
+        }
+
+        function _sleep(ms) {
+            return new Promise(function(res) { setTimeout(res, ms); });
+        }
+
+        async function typeTextIntoVM(text) {
+            if (!rfb) { console.warn('[clipboard] typeTextIntoVM: rfb is null, aborting'); return; }
+
+            // Cancel any in-progress paste
+            if (_pasteAbort) { _pasteAbort.cancelled = true; }
+            var token = { cancelled: false };
+            _pasteAbort = token;
+
+            // Normalise CRLF → LF
+            text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+            console.log('[clipboard] typeTextIntoVM: starting async paste,', text.length, 'chars');
+            _releaseModifiers();
+
+            var chars = Array.from(text); // Unicode-safe split
+            var total = chars.length;
+            var sent  = 0;
+
+            for (var i = 0; i < total; ) {
+                if (token.cancelled) {
+                    console.log('[clipboard] typeTextIntoVM: paste cancelled at char', i);
+                    return;
+                }
+
+                // Send one chunk
+                var chunkEnd = Math.min(i + PASTE_CHUNK_SIZE, total);
+                for (var j = i; j < chunkEnd; j++) {
+                    try {
+                        _sendOneKey(chars[j]);
+                    } catch(err) {
+                        console.error('[clipboard] sendKey threw at char', j, ':', err);
+                    }
+                    if (PASTE_KEY_DELAY > 0 && j < chunkEnd - 1) {
+                        await _sleep(PASTE_KEY_DELAY);
+                    }
+                    if (token.cancelled) return;
+                }
+
+                sent += (chunkEnd - i);
+                i = chunkEnd;
+
+                // Release all modifiers at the end of every chunk (belt-and-suspenders)
+                _releaseModifiers();
+
+                if (i < total) {
+                    await _sleep(PASTE_CHUNK_DELAY);
+                }
+            }
+
+            console.log('[clipboard] typeTextIntoVM: done, sent', sent, 'chars');
+            _pasteAbort = null;
         }
 
         function connected(e) {
@@ -261,10 +338,12 @@
             var text = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
             console.log('[clipboard] paste relay fired, chars:', text.length);
             if (!text) return;
-            typeTextIntoVM(text);
-            // Refocus canvas so keyboard input continues going to the VM
-            var canvas = document.querySelector('#noVNC_screen canvas');
-            if (canvas) { canvas.focus(); }
+            // typeTextIntoVM is async; refocus canvas AFTER it finishes so the
+            // canvas keyboard grab doesn't race with our sendKey stream.
+            typeTextIntoVM(text).then(function() {
+                var canvas = document.querySelector('#noVNC_screen canvas');
+                if (canvas) { canvas.focus(); }
+            });
         });
 
         // Intercept Ctrl+V before noVNC sees it
