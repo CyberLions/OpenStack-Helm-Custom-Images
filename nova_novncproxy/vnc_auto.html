@@ -148,9 +148,9 @@
         var CAPS_KEY   = 0xffe5; // CapsLock
 
         // Tuning knobs — adjust if the target VM still drops keys or feels slow
-        var PASTE_CHUNK_SIZE  = 8;   // keystrokes sent per chunk
+        var PASTE_CHUNK_SIZE  = 40;   // keystrokes sent per chunk
         var PASTE_CHUNK_DELAY = 20;  // ms between chunks  (increase for slow VMs)
-        var PASTE_KEY_DELAY   = 2;   // ms between individual keys inside a chunk
+        var PASTE_KEY_DELAY   = 10;   // ms between individual keys inside a chunk
 
         // Active paste can be cancelled if a new one starts
         var _pasteAbort = null;
