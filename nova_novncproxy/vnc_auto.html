@@ -149,8 +149,11 @@
 
         // Tuning knobs — adjust if the target VM still drops keys or feels slow
         var PASTE_CHUNK_SIZE  = 40;   // keystrokes sent per chunk
-        var PASTE_CHUNK_DELAY = 60;  // ms between chunks  (increase for slow VMs)
+        var PASTE_CHUNK_DELAY = 150;  // ms between chunks  (increase for slow VMs)
         var PASTE_KEY_DELAY   = 10;   // ms between individual keys inside a chunk
+
+        const SOCKET_HIGH_WATER = 10_000;
+        const SOCKET_LOW_WATER  = 5_000;
 
         // Active paste can be cancelled if a new one starts
         var _pasteAbort = null;
@@ -198,6 +201,12 @@
             return new Promise(function(res) { setTimeout(res, ms); });
         }
 
+        async function waitForSocketDrain(ws) {
+            while (ws.bufferedAmount > SOCKET_LOW_WATER) {
+                await new Promise(resolve => setTimeout(resolve, 1));
+            }
+        }
+
         async function typeTextIntoVM(text) {
             if (!rfb) { console.warn('[clipboard] typeTextIntoVM: rfb is null, aborting'); return; }
 
@@ -243,6 +252,11 @@
                 _releaseModifiers();
 
                 if (i < total) {
+                    const ws = rfb._sock._websocket;
+                    if (ws.bufferedAmount > SOCKET_HIGH_WATER) {
+                        await waitForSocketDrain(ws);
+                    }
+
                     await _sleep(PASTE_CHUNK_DELAY);
                 }
             }
