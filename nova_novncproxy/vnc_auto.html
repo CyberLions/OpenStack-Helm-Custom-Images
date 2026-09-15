@@ -218,16 +218,12 @@
             // older noVNC
             try {
                 rfb.clipboardPasteFrom("==clipboardPasteFrom==");
-            } catch (error) {
-                console.error('[clipboard] clipboardPasteFrom() threw :', err);
-            }
+            } catch (err) {}
 
             // newer noVNC API
             try {
                 rfb.sendClipboardText("==sendClipboardText==");
-            } catch (error) {
-                console.error('[clipboard] sendClipboardText() threw :', err);
-            }
+            } catch (err) {}
         }
 
         async function typeTextIntoVM(text) {
