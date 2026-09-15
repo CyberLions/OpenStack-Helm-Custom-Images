@@ -159,24 +159,29 @@
         var _pasteAbort = null;
 
         function _releaseModifiers() {
-            // Unconditionally release every common modifier so none stay stuck
+
+            // Release momentary modifiers.
             var mods = [
                 0xffe1, // Shift_L
                 0xffe2, // Shift_R
                 0xffe3, // Control_L
                 0xffe4, // Control_R
-                0xffe7, // Meta_L  (Super/Win)
+                0xffe7, // Meta_L
                 0xffe8, // Meta_R
                 0xffe9, // Alt_L
-                0xffea, // Alt_R
-                0xffe5, // Caps_Lock  — force OFF via double-tap if needed below
+                0xffea  // Alt_R
             ];
             mods.forEach(function(k) {
-                try { rfb.sendKey(k, null, false); } catch(e) {}
+                try {
+                    rfb.sendKey(k, null, false);
+                } catch (e) {}
             });
         }
 
         function _sendOneKey(c) {
+            // Explicitly drop all non-ASCII characters.
+            if (c.codePointAt(0) > 0x7F) { return; }
+
             if (c === '\n' || c === '\r') {
                 rfb.sendKey(0xff0d, null, true);
                 rfb.sendKey(0xff0d, null, false);
