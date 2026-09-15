@@ -224,6 +224,8 @@
             try {
                 rfb.sendClipboardText("==sendClipboardText==");
             } catch (err) {}
+
+            console.log('[clipboard] sendTestClipboardPaste: done');
         }
 
         async function typeTextIntoVM(text) {
