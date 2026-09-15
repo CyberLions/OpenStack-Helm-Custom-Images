@@ -337,6 +337,7 @@
         document.getElementById('machineShutdownButton').onclick = machineShutdown;
         document.getElementById('machineRebootButton').onclick = machineReboot;
         document.getElementById('machineResetButton').onclick = machineReset;
+        document.getElementById('testingButton').onclick = sendTestClipboardPaste;
 
         WebUtil.init_logging(WebUtil.getConfigVar('logging', 'warn'));
         document.title = WebUtil.getConfigVar('title', 'noVNC');
@@ -564,7 +565,7 @@
       <input type=button value="Clipboard" id="clipboardButton" onclick="toggleClipboard()">
       <input type=button value="Fullscreen" id="fullscreenButton" onclick="toggleFullscreen()">
       <input type=button value="Ctrl+Alt+Del" id="sendCtrlAltDelButton" disabled>
-      <input type=button value="Testing" id="testingButton" onclick="sendTestClipboardPaste()">
+      <input type=button value="Testing" id="testingButton">
     </div>
   </div>
 
