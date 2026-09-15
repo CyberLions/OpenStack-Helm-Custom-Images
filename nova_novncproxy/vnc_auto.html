@@ -212,6 +212,24 @@
             }
         }
 
+        function sendTestClipboardPaste() {
+            if (!rfb) { console.warn('[clipboard] sendTestClipboardPaste: rfb is null, aborting'); return; }
+            
+            // older noVNC
+            try {
+                rfb.clipboardPasteFrom("==clipboardPasteFrom==");
+            } catch (error) {
+                console.error('[clipboard] clipboardPasteFrom() threw :', err);
+            }
+
+            // newer noVNC API
+            try {
+                rfb.sendClipboardText("==sendClipboardText==");
+            } catch (error) {
+                console.error('[clipboard] sendClipboardText() threw :', err);
+            }
+        }
+
         async function typeTextIntoVM(text) {
             if (!rfb) { console.warn('[clipboard] typeTextIntoVM: rfb is null, aborting'); return; }
 
@@ -546,6 +564,7 @@
       <input type=button value="Clipboard" id="clipboardButton" onclick="toggleClipboard()">
       <input type=button value="Fullscreen" id="fullscreenButton" onclick="toggleFullscreen()">
       <input type=button value="Ctrl+Alt+Del" id="sendCtrlAltDelButton" disabled>
+      <input type=button value="Testing" id="testingButton" onclick="sendTestClipboardPaste()">
     </div>
   </div>
 
